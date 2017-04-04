@@ -26,7 +26,7 @@ import org.scalatest.BeforeAndAfterAll
 import retrofit2.Call
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 import org.apache.spark.util.Utils
 
 /**
@@ -64,9 +64,6 @@ class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndA
     val kubernetesCredentials = KubernetesCredentials(Some("token"), Some("ca-cert"), None, None)
     val kubernetesCredentialsString = OBJECT_MAPPER.writer()
       .writeValueAsString(kubernetesCredentials)
-    val readKubernetesCredentials: KubernetesCredentials = OBJECT_MAPPER
-      .readerFor(classOf[KubernetesCredentials])
-      .readValue(kubernetesCredentialsString)
     val kubernetesCredentialsBody = RequestBody.create(
         okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), kubernetesCredentialsString)
     val uploadResponse = retrofitService.uploadDependencies("podName", "podNamespace",

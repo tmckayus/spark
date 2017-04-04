@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.deploy.rest
+package org.apache.spark.deploy.rest.kubernetes.v1
 
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 
 import org.apache.spark.SPARK_VERSION
+import org.apache.spark.deploy.rest.{SubmitRestProtocolRequest, SubmitRestProtocolResponse}
 
 case class KubernetesCredentials(
     oauthToken: Option[String],

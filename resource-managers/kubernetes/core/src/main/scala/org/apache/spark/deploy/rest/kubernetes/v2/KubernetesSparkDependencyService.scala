@@ -17,12 +17,12 @@
 package org.apache.spark.deploy.rest.kubernetes.v2
 
 import java.io.InputStream
-import javax.ws.rs.{Consumes, GET, HeaderParam, Path, Produces, PUT, QueryParam}
+import javax.ws.rs.{Consumes, GET, HeaderParam, PUT, Path, Produces, QueryParam}
 import javax.ws.rs.core.{MediaType, StreamingOutput}
 
 import org.glassfish.jersey.media.multipart.FormDataParam
 
-import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 
 /**
  * Service that receives application data that can be received later on. This is primarily used

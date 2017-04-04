@@ -20,7 +20,7 @@ import okhttp3.{RequestBody, ResponseBody}
 import retrofit2.Call
 import retrofit2.http.{Multipart, Streaming}
 
-import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 
 /**
  * Retrofit-compatible variant of {@link KubernetesSparkDependencyService}. For documentation on

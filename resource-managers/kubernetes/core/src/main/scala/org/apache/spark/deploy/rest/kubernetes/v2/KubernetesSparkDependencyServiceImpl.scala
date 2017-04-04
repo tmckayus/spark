@@ -25,7 +25,7 @@ import com.google.common.io.{BaseEncoding, ByteStreams, Files}
 import scala.collection.mutable
 
 import org.apache.spark.SparkException
-import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 import org.apache.spark.util.Utils
 
 private[spark] class KubernetesSparkDependencyServiceImpl(dependenciesRootDir: File)

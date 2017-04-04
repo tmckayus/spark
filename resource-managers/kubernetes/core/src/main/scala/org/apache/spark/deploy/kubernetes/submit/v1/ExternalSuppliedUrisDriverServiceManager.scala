@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.deploy.rest.kubernetes
+package org.apache.spark.deploy.kubernetes.submit.v1
 
 import java.util.concurrent.TimeUnit
 
 import com.google.common.util.concurrent.SettableFuture
 import io.fabric8.kubernetes.api.model.{Service, ServiceBuilder}
-import io.fabric8.kubernetes.client.{KubernetesClient, KubernetesClientException, Watch, Watcher}
 import io.fabric8.kubernetes.client.Watcher.Action
+import io.fabric8.kubernetes.client.{KubernetesClient, KubernetesClientException, Watch, Watcher}
 import scala.collection.JavaConverters._
 
 import org.apache.spark.SparkConf
