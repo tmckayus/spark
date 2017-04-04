@@ -16,11 +16,15 @@
  */
 package org.apache.spark.deploy.rest.kubernetes.v2
 
+import java.io.ByteArrayInputStream
+import java.nio.file.Paths
 import java.util.UUID
 
+import com.google.common.io.Files
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.SparkFunSuite
+import org.apache.spark.deploy.rest.KubernetesCredentials
 import org.apache.spark.util.Utils
 
 /**
@@ -34,6 +38,8 @@ class KubernetesSparkDependencyServiceImplSuite extends SparkFunSuite with Befor
   private val serviceImpl = new KubernetesSparkDependencyServiceImpl(dependencyRootDir)
   private val jarsBytes = Array[Byte](1, 2, 3, 4)
   private val filesBytes = Array[Byte](5, 6, 7)
+  private val kubernetesCredentials = KubernetesCredentials(
+    Some("token"), Some("caCert"), Some("key"), Some("cert"))
   private var podName: String = _
   private var podNamespace: String = _
 
@@ -42,8 +48,25 @@ class KubernetesSparkDependencyServiceImplSuite extends SparkFunSuite with Befor
     podNamespace = UUID.randomUUID().toString
   }
 
-  test("Uploads should write to a directory in the underlying disk") {
-    // TODO
+  test("Uploads should write data to the underlying disk") {
+    Utils.tryWithResource(new ByteArrayInputStream(jarsBytes)) { jarsStream =>
+      Utils.tryWithResource(new ByteArrayInputStream(filesBytes)) { filesStream =>
+        serviceImpl.uploadDependencies(
+          "name", "namespace", jarsStream, filesStream, kubernetesCredentials)
+      }
+    }
+    val jarsTgz = Paths.get(dependencyRootDir.getAbsolutePath, "namespace", "name", "jars.tgz")
+      .toFile
+    assert(jarsTgz.isFile,
+      s"Jars written to ${jarsTgz.getAbsolutePath} does not exist or is not a file.")
+    val jarsTgzBytes = Files.toByteArray(jarsTgz)
+    assert(jarsBytes.toSeq === jarsTgzBytes.toSeq, "Incorrect jars bytes were written.")
+    val filesTgz = Paths.get(dependencyRootDir.getAbsolutePath, "namespace", "name", "files.tgz")
+      .toFile
+    assert(filesTgz.isFile,
+      s"Files written to ${filesTgz.getAbsolutePath} does not exist or is not a file.")
+    val filesTgzBytes = Files.toByteArray(filesTgz)
+    assert(filesBytes.toSeq === filesTgzBytes.toSeq, "Incorrect files bytes were written.")
   }
 
 }
