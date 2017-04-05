@@ -59,9 +59,3 @@ private[spark] class KubernetesSparkDependencyServer(
     jettyServer = None
   }
 }
-
-object KubernetesSparkDependencyServer {
-  def main(args: Array[String]): Unit = {
-    
-  }
-}
