@@ -288,4 +288,36 @@ package object config {
       .doc("Interval between reports of the current app status in cluster mode.")
       .timeConf(TimeUnit.MILLISECONDS)
       .createWithDefaultString("1s")
+
+  // Spark dependency server for submission v2
+
+  private[spark] val DEPENDENCY_SERVER_PORT =
+    ConfigBuilder("spark.kubernetes.dependencyserver.port")
+      .doc("Port for the Kubernetes dependency server to listen on.")
+      .intConf
+      .createWithDefault(10000)
+
+  private[spark] val DEPENDENCY_SERVER_KEY_PEM =
+    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyPem")
+      .doc("Key PEM file to use when having the Kubernetes dependency server listen on TLS.")
+      .stringConf
+      .createOptional
+
+  private[spark] val DEPENDENCY_SERVER_CERT_PEM =
+    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.serverCertPem")
+      .doc("Certificate PEM file to use when having the Kubernetes dependency server listen on TLS.")
+      .stringConf
+      .createOptional
+
+  private[spark] val DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE =
+    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyStorePasswordFile")
+      .doc("File containing the keystore password for the Kubernetes dependency server.")
+      .stringConf
+      .createOptional
+
+  private[spark] val DEPENDENCY_SERVER_KEYSTORE_KEY_PASSWORD_FILE =
+    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyPasswordFile")
+      .doc("File containing the key password for the Kubernetes dependency server.")
+      .stringConf
+      .createOptional
 }
