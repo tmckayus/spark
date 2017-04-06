@@ -17,7 +17,7 @@
 package org.apache.spark.deploy.rest.kubernetes.v2
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.jaxrs.json.{JacksonJaxbJsonProvider, JacksonJsonProvider}
+import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.eclipse.jetty.server.{Server, ServerConnector}
 import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
