@@ -32,7 +32,7 @@ import org.glassfish.jersey.server.ResourceConfig
 import org.glassfish.jersey.servlet.ServletContainer
 import scala.collection.JavaConverters._
 
-import org.apache.spark.{SparkConf, SSLOptions}
+import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.internal.config.{ConfigReader, SparkConfigProvider}
 import org.apache.spark.util.Utils
