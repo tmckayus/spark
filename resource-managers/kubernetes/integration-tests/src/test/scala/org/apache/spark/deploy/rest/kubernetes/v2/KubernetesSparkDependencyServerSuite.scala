@@ -64,9 +64,6 @@ class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndA
     val kubernetesCredentials = KubernetesCredentials(Some("token"), Some("ca-cert"), None, None)
     val kubernetesCredentialsString = OBJECT_MAPPER.writer()
       .writeValueAsString(kubernetesCredentials)
-    val readKubernetesCredentials: KubernetesCredentials = OBJECT_MAPPER
-      .readerFor(classOf[KubernetesCredentials])
-      .readValue(kubernetesCredentialsString)
     val kubernetesCredentialsBody = RequestBody.create(
         okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), kubernetesCredentialsString)
     val uploadResponse = retrofitService.uploadDependencies("podName", "podNamespace",
