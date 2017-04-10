@@ -138,13 +138,7 @@ private[spark] class KubernetesSparkRestServer(
     protected override def doGet(
       request: HttpServletRequest,
       response: HttpServletResponse): Unit = {
-      try {
-        sendResponse(new PingResponse, response)
-      } catch {
-        case e: Throwable =>
-          logError("Failed to create ping.", e)
-          throw e
-      }
+      sendResponse(new PingResponse, response)
     }
   }
 
