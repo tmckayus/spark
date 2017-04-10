@@ -31,7 +31,7 @@ import org.apache.commons.lang3.RandomStringUtils
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.spark.{SecurityManager, SparkConf, SparkException, SPARK_VERSION => sparkVersion, SSLOptions}
+import org.apache.spark.{SecurityManager, SPARK_VERSION => sparkVersion, SparkConf, SparkException, SSLOptions}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.submit.v1.CompressionUtils
