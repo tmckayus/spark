@@ -93,14 +93,4 @@ private[spark] trait KubernetesSparkDependencyService {
   @Path("/dependencies/files")
   def downloadFiles(
       @HeaderParam("Authorization") applicationSecret: String): StreamingOutput
-
-  /**
-   * Retrieve the Kubernetes credentials being used to monitor the Spark application.
-   */
-  @GET
-  @Consumes(Array(MediaType.APPLICATION_JSON))
-  @Produces(Array(MediaType.APPLICATION_JSON))
-  @Path("/dependencies/credentials")
-  def getKubernetesCredentials(
-      @HeaderParam("Authorization") applicationSecret: String): KubernetesCredentials
 }
