@@ -98,14 +98,6 @@ private[spark] class KubernetesSparkDependencyServiceImpl(dependenciesRootDir: F
     appFileToStreamingOutput(applicationSecret, _.filesTgz)
   }
 
-  override def getKubernetesCredentials(applicationSecret: String): KubernetesCredentials = {
-    SPARK_APPLICATION_DEPENDENCIES_LOCK.synchronized {
-      sparkApplicationDependencies.get(applicationSecret)
-        .map(_.kubernetesCredentials)
-        .getOrElse(throw new SparkException("No application found for the provided token."))
-    }
-  }
-
   private def appFileToStreamingOutput(
       applicationSecret: String,
       dependency: (SparkApplicationDependencies => File)): StreamingOutput = {
