@@ -74,9 +74,6 @@ class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndA
       jarsBytes)
     checkResponseBodyBytesMatches(retrofitService.downloadFiles(secret),
       filesBytes)
-    val downloadedCredentials = getTypedResponseResult(
-      retrofitService.getKubernetesCredentials(secret))
-    assert(downloadedCredentials === kubernetesCredentials)
   }
 
   private def getTypedResponseResult[T](call: Call[T]): T = {

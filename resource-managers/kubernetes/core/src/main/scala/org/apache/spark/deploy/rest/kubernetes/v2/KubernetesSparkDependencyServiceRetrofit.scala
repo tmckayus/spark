@@ -47,9 +47,4 @@ private[spark] trait KubernetesSparkDependencyServiceRetrofit {
   @retrofit2.http.GET("/api/dependencies/files")
   def downloadFiles(
       @retrofit2.http.Header("Authorization") applicationSecret: String): Call[ResponseBody]
-
-  @retrofit2.http.GET("/api/dependencies/credentials")
-  def getKubernetesCredentials(
-      @retrofit2.http.Header("Authorization") applicationSecret: String)
-      : Call[KubernetesCredentials]
 }
