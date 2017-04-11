@@ -305,7 +305,8 @@ package object config {
 
   private[spark] val DEPENDENCY_SERVER_CERT_PEM =
     ConfigBuilder("spark.ssl.kubernetes.dependencyserver.serverCertPem")
-      .doc("Certificate PEM file to use when having the Kubernetes dependency server listen on TLS.")
+      .doc("Certificate PEM file to use when having the Kubernetes dependency server" +
+        " listen on TLS.")
       .stringConf
       .createOptional
 
