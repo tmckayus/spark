@@ -18,7 +18,6 @@ package org.apache.spark.deploy.rest.kubernetes.v2
 
 import java.io.{ByteArrayInputStream, File}
 import java.nio.file.Paths
-import java.util.UUID
 
 import com.google.common.io.Files
 import org.scalatest.BeforeAndAfter
@@ -40,7 +39,7 @@ class ResourceStagingServiceImplSuite extends SparkFunSuite with BeforeAndAfter 
   private val resourceBytes = Array[Byte](1, 2, 3, 4)
   private val kubernetesCredentials = KubernetesCredentials(
     Some("token"), Some("caCert"), Some("key"), Some("cert"))
-  private var namespace = "namespace"
+  private val namespace = "namespace"
   private val labels = Map("label1" -> "label1value", "label2" -> "label2value")
 
   test("Uploads should write data to the underlying disk") {
