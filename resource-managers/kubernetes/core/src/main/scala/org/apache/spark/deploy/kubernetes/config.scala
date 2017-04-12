@@ -291,33 +291,33 @@ package object config {
 
   // Spark dependency server for submission v2
 
-  private[spark] val DEPENDENCY_SERVER_PORT =
-    ConfigBuilder("spark.kubernetes.dependencyserver.port")
-      .doc("Port for the Kubernetes dependency server to listen on.")
+  private[spark] val RESOURCE_STAGING_SERVER_PORT =
+    ConfigBuilder("spark.kubernetes.resourceStagingServer.port")
+      .doc("Port for the Kubernetes resource staging server to listen on.")
       .intConf
       .createWithDefault(10000)
 
   private[spark] val DEPENDENCY_SERVER_KEY_PEM =
-    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyPem")
+    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyPem")
       .doc("Key PEM file to use when having the Kubernetes dependency server listen on TLS.")
       .stringConf
       .createOptional
 
   private[spark] val DEPENDENCY_SERVER_CERT_PEM =
-    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.serverCertPem")
+    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.serverCertPem")
       .doc("Certificate PEM file to use when having the Kubernetes dependency server" +
         " listen on TLS.")
       .stringConf
       .createOptional
 
   private[spark] val DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE =
-    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyStorePasswordFile")
+    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyStorePasswordFile")
       .doc("File containing the keystore password for the Kubernetes dependency server.")
       .stringConf
       .createOptional
 
   private[spark] val DEPENDENCY_SERVER_KEYSTORE_KEY_PASSWORD_FILE =
-    ConfigBuilder("spark.ssl.kubernetes.dependencyserver.keyPasswordFile")
+    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyPasswordFile")
       .doc("File containing the key password for the Kubernetes dependency server.")
       .stringConf
       .createOptional

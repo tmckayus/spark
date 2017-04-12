@@ -16,7 +16,7 @@
  */
 package org.apache.spark.deploy.rest.kubernetes.v2
 
-import java.util.UUID
+import java.net.ServerSocket
 import javax.ws.rs.core.MediaType
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -40,13 +40,13 @@ import org.apache.spark.util.Utils
  * we've configured the Jetty server correctly and that the endpoints reached over HTTP can
  * receive streamed uploads and can stream downloads.
  */
-class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndAfter {
-
+class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
   private val OBJECT_MAPPER = new ObjectMapper().registerModule(new DefaultScalaModule)
 
-  private val serviceImpl = new KubernetesSparkDependencyServiceImpl(Utils.createTempDir())
+  private val serverPort = new ServerSocket(0).getLocalPort
+  private val serviceImpl = new ResourceStagingServiceImpl(Utils.createTempDir())
   private val sslOptionsProvider = new SettableReferenceSslOptionsProvider()
-  private val server = new KubernetesSparkDependencyServer(10021, serviceImpl, sslOptionsProvider)
+  private val server = new ResourceStagingServer(serverPort, serviceImpl, sslOptionsProvider)
 
   after {
     server.stop()
@@ -73,32 +73,29 @@ class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndA
   }
 
   private def runUploadAndDownload(sslOptions: SSLOptions): Unit = {
-    val scheme = if (sslOptions.enabled) "https" else "http"
-    val retrofitService = RetrofitUtils.createRetrofitClient(s"$scheme://127.0.0.1:10021/",
-      classOf[KubernetesSparkDependencyServiceRetrofit], sslOptions)
-    val jarsBytes = Array[Byte](1, 2, 3, 4)
-    val filesBytes = Array[Byte](5, 6, 7)
-    val jarsRequestBody = RequestBody.create(
-      okhttp3.MediaType.parse(MediaType.MULTIPART_FORM_DATA), jarsBytes)
-    val filesRequestBody = RequestBody.create(
-      okhttp3.MediaType.parse(MediaType.MULTIPART_FORM_DATA), filesBytes)
+    val retrofitService = RetrofitUtils.createRetrofitClient(
+      s"http://localhost:$serverPort/",
+      classOf[ResourceStagingServiceRetrofit],
+      sslOptions)
+    val resourcesBytes = Array[Byte](1, 2, 3, 4)
+    val labels = Map("label1" -> "label1Value", "label2" -> "label2value")
+    val namespace = "namespace"
+    val labelsJson = OBJECT_MAPPER.writer().writeValueAsString(labels)
+    val resourcesRequestBody = RequestBody.create(
+      okhttp3.MediaType.parse(MediaType.MULTIPART_FORM_DATA), resourcesBytes)
+    val labelsRequestBody = RequestBody.create(
+      okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), labelsJson)
+    val namespaceRequestBody = RequestBody.create(
+      okhttp3.MediaType.parse(MediaType.TEXT_PLAIN), namespace)
     val kubernetesCredentials = KubernetesCredentials(Some("token"), Some("ca-cert"), None, None)
     val kubernetesCredentialsString = OBJECT_MAPPER.writer()
       .writeValueAsString(kubernetesCredentials)
-    val kubernetesCredentialsBody = RequestBody.create(
-      okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), kubernetesCredentialsString)
+    val kubernetesCredentialsBody = RequestBody.create(okhttp3.MediaType.parse(
+      MediaType.APPLICATION_JSON), kubernetesCredentialsString)
     val uploadResponse = retrofitService.uploadDependencies(
-      UUID.randomUUID().toString,
-      UUID.randomUUID().toString,
-      jarsRequestBody,
-      filesRequestBody,
-      kubernetesCredentialsBody)
+    labelsRequestBody, namespaceRequestBody, resourcesRequestBody, kubernetesCredentialsBody)
     val secret = getTypedResponseResult(uploadResponse)
-
-    checkResponseBodyBytesMatches(retrofitService.downloadJars(secret),
-      jarsBytes)
-    checkResponseBodyBytesMatches(retrofitService.downloadFiles(secret),
-      filesBytes)
+    checkResponseBodyBytesMatches(retrofitService.downloadResources(secret), resourcesBytes)
   }
 
   private def getTypedResponseResult[T](call: Call[T]): T = {

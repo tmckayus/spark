@@ -23,28 +23,22 @@ import retrofit2.http.{Multipart, Streaming}
 import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 
 /**
- * Retrofit-compatible variant of {@link KubernetesSparkDependencyService}. For documentation on
+ * Retrofit-compatible variant of {@link ResourceStagingService}. For documentation on
  * how to use this service, see the aforementioned JAX-RS based interface.
  */
-private[spark] trait KubernetesSparkDependencyServiceRetrofit {
+private[spark] trait ResourceStagingServiceRetrofit {
 
   @Multipart
-  @retrofit2.http.PUT("/api/dependencies")
+  @retrofit2.http.PUT("/api/resources/upload")
   def uploadDependencies(
-      @retrofit2.http.Query("driverPodName") driverPodName: String,
-      @retrofit2.http.Query("driverPodNamespace") driverPodNamespace: String,
-      @retrofit2.http.Part("jars") jars: RequestBody,
-      @retrofit2.http.Part("files") files: RequestBody,
+      @retrofit2.http.Part("podLabels") podLabels: RequestBody,
+      @retrofit2.http.Part("podNamespace") podNamespace: RequestBody,
+      @retrofit2.http.Part("resources") resources: RequestBody,
       @retrofit2.http.Part("kubernetesCredentials")
           kubernetesCredentials: RequestBody): Call[String]
 
   @Streaming
-  @retrofit2.http.GET("/api/dependencies/jars")
-  def downloadJars(
-      @retrofit2.http.Header("Authorization") applicationSecret: String): Call[ResponseBody]
-
-  @Streaming
-  @retrofit2.http.GET("/api/dependencies/files")
-  def downloadFiles(
+  @retrofit2.http.GET("/api/resources/download")
+  def downloadResources(
       @retrofit2.http.Header("Authorization") applicationSecret: String): Call[ResponseBody]
 }
