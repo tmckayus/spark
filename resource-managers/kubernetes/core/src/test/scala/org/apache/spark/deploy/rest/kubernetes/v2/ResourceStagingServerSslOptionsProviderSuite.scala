@@ -28,17 +28,17 @@ import org.apache.spark.{SparkConf, SparkFunSuite, SSLOptions}
 import org.apache.spark.deploy.kubernetes.SSLUtils
 import org.apache.spark.util.Utils
 
-class DependencyServerSslOptionsProviderSuite extends SparkFunSuite with BeforeAndAfter {
+class ResourceStagingServerSslOptionsProviderSuite extends SparkFunSuite with BeforeAndAfter {
 
-  private val SSL_TEMP_DIR = Utils.createTempDir(namePrefix = "dependency-server-ssl-test")
+  private val SSL_TEMP_DIR = Utils.createTempDir(namePrefix = "resource-staging-server-ssl-test")
   private val KEYSTORE_FILE = new File(SSL_TEMP_DIR, "keyStore.jks")
 
   private var sparkConf: SparkConf = _
-  private var sslOptionsProvider: DependencyServerSslOptionsProvider = _
+  private var sslOptionsProvider: ResourceStagingServerSslOptionsProvider = _
 
   before {
     sparkConf = new SparkConf(true)
-    sslOptionsProvider = new DependencyServerSslOptionsProviderImpl(sparkConf)
+    sslOptionsProvider = new ResourceStagingServerSslOptionsProviderImpl(sparkConf)
   }
 
   test("Default SparkConf does not have TLS enabled.") {
@@ -47,10 +47,10 @@ class DependencyServerSslOptionsProviderSuite extends SparkFunSuite with BeforeA
   }
 
   test("Setting keyStore, key password, and key field directly.") {
-    sparkConf.set("spark.ssl.kubernetes.dependencyserver.enabled", "true")
-      .set("spark.ssl.kubernetes.dependencyserver.keyStore", KEYSTORE_FILE.getAbsolutePath)
-      .set("spark.ssl.kubernetes.dependencyserver.keyStorePassword", "keyStorePassword")
-      .set("spark.ssl.kubernetes.dependencyserver.keyPassword", "keyPassword")
+    sparkConf.set("spark.ssl.kubernetes.resourceStagingServer.enabled", "true")
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", KEYSTORE_FILE.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStorePassword", "keyStorePassword")
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyPassword", "keyPassword")
     val sslOptions = sslOptionsProvider.getSslOptions
     assert(sslOptions.enabled, "SSL should be enabled.")
     assert(sslOptions.keyStore.map(_.getAbsolutePath) === Some(KEYSTORE_FILE.getAbsolutePath),
@@ -63,11 +63,11 @@ class DependencyServerSslOptionsProviderSuite extends SparkFunSuite with BeforeA
 
   test("Setting key and certificate pem files should write an appropriate keyStore.") {
     val (keyPemFile, certPemFile) = SSLUtils.generateKeyCertPemPair("127.0.0.1")
-    sparkConf.set("spark.ssl.kubernetes.dependencyserver.enabled", "true")
-      .set("spark.ssl.kubernetes.dependencyserver.keyPem", keyPemFile.getAbsolutePath)
-      .set("spark.ssl.kubernetes.dependencyserver.serverCertPem", certPemFile.getAbsolutePath)
-      .set("spark.ssl.kubernetes.dependencyserver.keyStorePassword", "keyStorePassword")
-      .set("spark.ssl.kubernetes.dependencyserver.keyPassword", "keyPassword")
+    sparkConf.set("spark.ssl.kubernetes.resourceStagingServer.enabled", "true")
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyPem", keyPemFile.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.serverCertPem", certPemFile.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStorePassword", "keyStorePassword")
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyPassword", "keyPassword")
     val sslOptions = sslOptionsProvider.getSslOptions
     assert(sslOptions.enabled, "SSL should be enabled.")
     assert(sslOptions.keyStore.isDefined, "KeyStore should be defined.")
@@ -88,11 +88,11 @@ class DependencyServerSslOptionsProviderSuite extends SparkFunSuite with BeforeA
     Files.write("keyStorePassword", keyStorePasswordFile, Charsets.UTF_8)
     val keyPasswordFile = new File(SSL_TEMP_DIR, "keyPassword.txt")
     Files.write("keyPassword", keyPasswordFile, Charsets.UTF_8)
-    sparkConf.set("spark.ssl.kubernetes.dependencyserver.enabled", "true")
-      .set("spark.ssl.kubernetes.dependencyserver.keyStore", KEYSTORE_FILE.getAbsolutePath)
-      .set("spark.ssl.kubernetes.dependencyserver.keyStorePasswordFile",
+    sparkConf.set("spark.ssl.kubernetes.resourceStagingServer.enabled", "true")
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", KEYSTORE_FILE.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStorePasswordFile",
         keyStorePasswordFile.getAbsolutePath)
-      .set("spark.ssl.kubernetes.dependencyserver.keyPasswordFile", keyPasswordFile.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyPasswordFile", keyPasswordFile.getAbsolutePath)
     val sslOptions = sslOptionsProvider.getSslOptions
     assert(sslOptions.keyStorePassword === Some("keyStorePassword"),
       "Incorrect keyStore password or it was not set.")

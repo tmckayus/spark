@@ -115,7 +115,7 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
   }
 }
 
-private class SettableReferenceSslOptionsProvider extends DependencyServerSslOptionsProvider {
+private class SettableReferenceSslOptionsProvider extends ResourceStagingServerSslOptionsProvider {
   private var options = SSLOptions()
 
   def setOptions(newOptions: SSLOptions): Unit = {

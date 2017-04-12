@@ -25,15 +25,15 @@ import org.apache.spark.{SecurityManager => SparkSecurityManager, SparkConf, Spa
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.rest.kubernetes.v1.PemsToKeyStoreConverter
 
-private[spark] trait DependencyServerSslOptionsProvider {
+private[spark] trait ResourceStagingServerSslOptionsProvider {
   def getSslOptions: SSLOptions
 }
 
-private[spark] class DependencyServerSslOptionsProviderImpl(sparkConf: SparkConf)
-    extends DependencyServerSslOptionsProvider {
+private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: SparkConf)
+    extends ResourceStagingServerSslOptionsProvider {
   def getSslOptions: SSLOptions = {
     val baseSslOptions = new SparkSecurityManager(sparkConf)
-      .getSSLOptions("kubernetes.dependencyserver")
+      .getSSLOptions("kubernetes.resourceStagingServer")
     val maybeKeyPem = sparkConf.get(DEPENDENCY_SERVER_KEY_PEM)
     val maybeCertPem = sparkConf.get(DEPENDENCY_SERVER_CERT_PEM)
     val maybeKeyStorePasswordFile = sparkConf.get(DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE)

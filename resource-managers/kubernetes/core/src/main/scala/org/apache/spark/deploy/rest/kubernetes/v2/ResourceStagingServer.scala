@@ -40,7 +40,7 @@ import org.apache.spark.util.Utils
 private[spark] class ResourceStagingServer(
     port: Int,
     serviceInstance: ResourceStagingService,
-    sslOptionsProvider: DependencyServerSslOptionsProvider) {
+    sslOptionsProvider: ResourceStagingServerSslOptionsProvider) {
 
   private var jettyServer: Option[Server] = None
 
@@ -112,7 +112,7 @@ object KubernetesSparkDependencyServer {
     }
     val dependenciesRootDir = Utils.createTempDir(namePrefix = "local-application-dependencies")
     val serviceInstance = new ResourceStagingServiceImpl(dependenciesRootDir)
-    val sslOptionsProvider = new DependencyServerSslOptionsProviderImpl(sparkConf)
+    val sslOptionsProvider = new ResourceStagingServerSslOptionsProviderImpl(sparkConf)
     val server = new ResourceStagingServer(
       port = sparkConf.get(RESOURCE_STAGING_SERVER_PORT),
       serviceInstance = serviceInstance,
