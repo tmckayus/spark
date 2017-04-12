@@ -23,7 +23,7 @@ import com.google.common.io.Files
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 import org.apache.spark.util.Utils
 
 /**
