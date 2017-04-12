@@ -16,6 +16,7 @@
  */
 package org.apache.spark.deploy.rest.kubernetes.v2
 
+import java.util.UUID
 import javax.ws.rs.core.MediaType
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -86,8 +87,12 @@ class KubernetesSparkDependencyServerSuite extends SparkFunSuite with BeforeAndA
       .writeValueAsString(kubernetesCredentials)
     val kubernetesCredentialsBody = RequestBody.create(
       okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), kubernetesCredentialsString)
-    val uploadResponse = retrofitService.uploadDependencies("podName", "podNamespace",
-      jarsRequestBody, filesRequestBody, kubernetesCredentialsBody)
+    val uploadResponse = retrofitService.uploadDependencies(
+      UUID.randomUUID().toString,
+      UUID.randomUUID().toString,
+      jarsRequestBody,
+      filesRequestBody,
+      kubernetesCredentialsBody)
     val secret = getTypedResponseResult(uploadResponse)
 
     checkResponseBodyBytesMatches(retrofitService.downloadJars(secret),
