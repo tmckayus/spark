@@ -16,7 +16,7 @@
  */
 package org.apache.spark.deploy.rest.kubernetes.v2
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, File}
 import java.nio.file.Paths
 import java.util.UUID
 
@@ -32,41 +32,30 @@ import org.apache.spark.util.Utils
  * differs from that of KubernetesSparkDependencyServerSuite as here we invoke the
  * implementation methods directly as opposed to over HTTP.
  */
-class KubernetesSparkDependencyServiceImplSuite extends SparkFunSuite with BeforeAndAfter {
+class ResourceStagingServiceImplSuite extends SparkFunSuite with BeforeAndAfter {
 
   private val dependencyRootDir = Utils.createTempDir()
-  private val serviceImpl = new KubernetesSparkDependencyServiceImpl(dependencyRootDir)
-  private val jarsBytes = Array[Byte](1, 2, 3, 4)
-  private val filesBytes = Array[Byte](5, 6, 7)
+  private val serviceImpl = new ResourceStagingServiceImpl(dependencyRootDir)
+  private val resourceBytes = Array[Byte](1, 2, 3, 4)
   private val kubernetesCredentials = KubernetesCredentials(
     Some("token"), Some("caCert"), Some("key"), Some("cert"))
-  private var podName: String = _
-  private var podNamespace: String = _
-
-  before {
-    podName = UUID.randomUUID().toString
-    podNamespace = UUID.randomUUID().toString
-  }
+  private var namespace = "namespace"
+  private val labels = Map("label1" -> "label1value", "label2" -> "label2value")
 
   test("Uploads should write data to the underlying disk") {
-    Utils.tryWithResource(new ByteArrayInputStream(jarsBytes)) { jarsStream =>
-      Utils.tryWithResource(new ByteArrayInputStream(filesBytes)) { filesStream =>
-        serviceImpl.uploadDependencies(
-          "name", "namespace", jarsStream, filesStream, kubernetesCredentials)
-      }
+    Utils.tryWithResource(new ByteArrayInputStream(resourceBytes)) { resourceStream =>
+      serviceImpl.uploadResources(labels, namespace, resourceStream, kubernetesCredentials)
     }
-    val jarsTgz = Paths.get(dependencyRootDir.getAbsolutePath, "namespace", "name", "jars.tgz")
-      .toFile
-    assert(jarsTgz.isFile,
-      s"Jars written to ${jarsTgz.getAbsolutePath} does not exist or is not a file.")
-    val jarsTgzBytes = Files.toByteArray(jarsTgz)
-    assert(jarsBytes.toSeq === jarsTgzBytes.toSeq, "Incorrect jars bytes were written.")
-    val filesTgz = Paths.get(dependencyRootDir.getAbsolutePath, "namespace", "name", "files.tgz")
-      .toFile
-    assert(filesTgz.isFile,
-      s"Files written to ${filesTgz.getAbsolutePath} does not exist or is not a file.")
-    val filesTgzBytes = Files.toByteArray(filesTgz)
-    assert(filesBytes.toSeq === filesTgzBytes.toSeq, "Incorrect files bytes were written.")
+    val resourceNamespaceDir = Paths.get(dependencyRootDir.getAbsolutePath, "namespace").toFile
+    assert(resourceNamespaceDir.isDirectory, s"Resource namespace dir was not created at" +
+      s" ${resourceNamespaceDir.getAbsolutePath} or is not a directory.")
+    val resourceDirs = resourceNamespaceDir.listFiles()
+    assert(resourceDirs.length === 1, s"Resource root directory did not have exactly one" +
+      s" subdirectory. Got: ${resourceDirs.map(_.getAbsolutePath).mkString(",")}")
+    val resourceTgz = new File(resourceDirs(0), "resources.tgz")
+    assert(resourceTgz.isFile,
+      s"Resources written to ${resourceTgz.getAbsolutePath} does not exist or is not a file.")
+    val resourceTgzBytes = Files.toByteArray(resourceTgz)
+    assert(resourceTgzBytes.toSeq === resourceBytes.toSeq, "Incorrect resource bytes were written.")
   }
-
 }

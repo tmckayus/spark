@@ -26,81 +26,60 @@ import scala.collection.mutable
 
 import org.apache.spark.SparkException
 import org.apache.spark.deploy.rest.KubernetesCredentials
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
 
-private[spark] class KubernetesSparkDependencyServiceImpl(dependenciesRootDir: File)
-    extends KubernetesSparkDependencyService {
+private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
+    extends ResourceStagingService with Logging {
 
   private val DIRECTORIES_LOCK = new Object
-  private val REGISTERED_DRIVERS_LOCK = new Object
   private val SPARK_APPLICATION_DEPENDENCIES_LOCK = new Object
   private val SECURE_RANDOM = new SecureRandom()
   // TODO clean up these resources based on the driver's lifecycle
-  private val registeredDrivers = mutable.Set.empty[PodNameAndNamespace]
   private val sparkApplicationDependencies = mutable.Map.empty[String, SparkApplicationDependencies]
 
-  override def uploadDependencies(
-      driverPodName: String,
-      driverPodNamespace: String,
-      jars: InputStream,
-      files: InputStream,
+  override def uploadResources(
+      podLabels: Map[String, String],
+      podNamespace: String,
+      resources: InputStream,
       kubernetesCredentials: KubernetesCredentials): String = {
-    val podNameAndNamespace = PodNameAndNamespace(
-      name = driverPodName,
-      namespace = driverPodNamespace)
-    REGISTERED_DRIVERS_LOCK.synchronized {
-      if (registeredDrivers.contains(podNameAndNamespace)) {
-        throw new SparkException(s"Spark application with driver pod named $driverPodName" +
-          s" and namespace $driverPodNamespace already uploaded its dependencies.")
-      }
-      registeredDrivers.add(podNameAndNamespace)
-    }
+    val resourcesId = UUID.randomUUID().toString
+    val secretBytes = new Array[Byte](1024)
+    SECURE_RANDOM.nextBytes(secretBytes)
+    val applicationSecret = resourcesId + "-" + BaseEncoding.base64().encode(secretBytes)
+
+    val namespaceDir = new File(dependenciesRootDir, podNamespace)
+    val resourcesDir = new File(namespaceDir, resourcesId)
     try {
-      val secretBytes = new Array[Byte](1024)
-      SECURE_RANDOM.nextBytes(secretBytes)
-      val applicationSecret = UUID.randomUUID() + "-" + BaseEncoding.base64().encode(secretBytes)
-      val namespaceDir = new File(dependenciesRootDir, podNameAndNamespace.namespace)
-      val applicationDir = new File(namespaceDir, podNameAndNamespace.name)
       DIRECTORIES_LOCK.synchronized {
-        if (!applicationDir.exists()) {
-          if (!applicationDir.mkdirs()) {
+        if (!resourcesDir.exists()) {
+          if (!resourcesDir.mkdirs()) {
             throw new SparkException("Failed to create dependencies directory for application" +
-              s" at ${applicationDir.getAbsolutePath}")
+              s" at ${resourcesDir.getAbsolutePath}")
           }
         }
       }
-      val jarsTgz = new File(applicationDir, "jars.tgz")
       // TODO encrypt the written data with the secret.
-      Utils.tryWithResource(new FileOutputStream(jarsTgz)) { ByteStreams.copy(jars, _) }
-      val filesTgz = new File(applicationDir, "files.tgz")
-      Utils.tryWithResource(new FileOutputStream(filesTgz)) { ByteStreams.copy(files, _) }
+      val resourcesTgz = new File(resourcesDir, "resources.tgz")
+      Utils.tryWithResource(new FileOutputStream(resourcesTgz)) { ByteStreams.copy(resources, _) }
       SPARK_APPLICATION_DEPENDENCIES_LOCK.synchronized {
         sparkApplicationDependencies(applicationSecret) = SparkApplicationDependencies(
-          podNameAndNamespace,
-          jarsTgz,
-          filesTgz,
+          podLabels,
+          podNamespace,
+          resourcesTgz,
           kubernetesCredentials)
       }
       applicationSecret
     } catch {
       case e: Throwable =>
-        // Revert the registered driver if we failed for any reason, most likely from disk ops
-        registeredDrivers.remove(podNameAndNamespace)
+        if (!resourcesDir.delete()) {
+          logWarning(s"Failed to delete application directory $resourcesDir.")
+        }
         throw e
     }
   }
 
-  override def downloadJars(applicationSecret: String): StreamingOutput = {
-    appFileToStreamingOutput(applicationSecret, _.jarsTgz)
-  }
-
-  override def downloadFiles(applicationSecret: String): StreamingOutput = {
-    appFileToStreamingOutput(applicationSecret, _.filesTgz)
-  }
-
-  private def appFileToStreamingOutput(
-      applicationSecret: String,
-      dependency: (SparkApplicationDependencies => File)): StreamingOutput = {
+  override def downloadResources(applicationSecret: String): StreamingOutput = {
     val applicationDependencies = SPARK_APPLICATION_DEPENDENCIES_LOCK.synchronized {
       sparkApplicationDependencies
         .get(applicationSecret)
@@ -108,15 +87,14 @@ private[spark] class KubernetesSparkDependencyServiceImpl(dependenciesRootDir: F
     }
     new StreamingOutput {
       override def write(outputStream: OutputStream) = {
-        Files.copy(dependency(applicationDependencies), outputStream)
+        Files.copy(applicationDependencies.resourcesTgz, outputStream)
       }
     }
   }
 }
 
-private case class PodNameAndNamespace(name: String, namespace: String)
 private case class SparkApplicationDependencies(
-  driverPodNameAndNamespace: PodNameAndNamespace,
-  jarsTgz: File,
-  filesTgz: File,
+  podLabels: Map[String, String],
+  podNamespace: String,
+  resourcesTgz: File,
   kubernetesCredentials: KubernetesCredentials)

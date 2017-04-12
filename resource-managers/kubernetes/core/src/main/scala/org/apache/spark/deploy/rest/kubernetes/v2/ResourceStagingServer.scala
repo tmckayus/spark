@@ -26,9 +26,9 @@ import org.glassfish.jersey.media.multipart.MultiPartFeature
 import org.glassfish.jersey.server.ResourceConfig
 import org.glassfish.jersey.servlet.ServletContainer
 
-private[spark] class KubernetesSparkDependencyServer(
+private[spark] class ResourceStagingServer(
     port: Int,
-    serviceInstance: KubernetesSparkDependencyService) {
+    serviceInstance: ResourceStagingService) {
 
   private var jettyServer: Option[Server] = None
 
