@@ -30,7 +30,8 @@ import org.apache.spark.util.Utils
 /**
  * Unit, scala-level tests for KubernetesSparkDependencyServiceImpl. The coverage here
  * differs from that of KubernetesSparkDependencyServerSuite as here we invoke the
- * implementation methods directly as opposed to over HTTP.
+ * implementation methods directly as opposed to over HTTP, as well as check the
+ * data written to the underlying disk.
  */
 class ResourceStagingServiceImplSuite extends SparkFunSuite with BeforeAndAfter {
 

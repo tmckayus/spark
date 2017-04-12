@@ -25,19 +25,20 @@ import org.glassfish.jersey.media.multipart.FormDataParam
 import org.apache.spark.deploy.rest.KubernetesCredentials
 
 /**
- * Service that receives application data that can be received later on. This is primarily used
+ * Service that receives application data that can be retrieved later on. This is primarily used
  * in the context of Spark, but the concept is generic enough to be used for arbitrary applications.
  * The use case is to have a place for Kubernetes application submitters to bootstrap dynamic,
  * heavyweight application data for pods. Application submitters may have data stored on their
  * local disks that they want to provide to the pods they create through the API server. ConfigMaps
  * are one way to provide this data, but the data in ConfigMaps are stored in etcd which cannot
- * maintain data in the hundreds of megabytes in size.<br>
- * <br>
+ * maintain data in the hundreds of megabytes in size.
+ * <p>
  * The general use case is for an application submitter to ship the dependencies to the server via
- * {@link uploadDependencies}; the application submitter will then receive a unique secure token.
+ * {@link uploadResources}; the application submitter will then receive a unique secure token.
  * The application submitter then ought to convert the token into a secret, and use this secret in
- * a pod that fetches the uploaded dependencies via {@link downloadJars}, {@link downloadFiles}, and
- * {@link getKubernetesCredentials}.
+ * a pod that fetches the uploaded dependencies via {@link downloadResources}. An application can
+ * provide multiple resource bundles simply by hitting the upload endpoint multiple times and
+ * downloading each bundle with the appropriate secret.
  */
 @Path("/")
 private[spark] trait ResourceStagingService {
