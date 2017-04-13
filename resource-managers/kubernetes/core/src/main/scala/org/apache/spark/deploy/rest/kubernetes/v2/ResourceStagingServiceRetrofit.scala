@@ -20,8 +20,6 @@ import okhttp3.{RequestBody, ResponseBody}
 import retrofit2.Call
 import retrofit2.http.{Multipart, Streaming}
 
-import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
-
 /**
  * Retrofit-compatible variant of {@link ResourceStagingService}. For documentation on
  * how to use this service, see the aforementioned JAX-RS based interface.
@@ -30,7 +28,7 @@ private[spark] trait ResourceStagingServiceRetrofit {
 
   @Multipart
   @retrofit2.http.PUT("/api/resources/upload")
-  def uploadDependencies(
+  def uploadResources(
       @retrofit2.http.Part("podLabels") podLabels: RequestBody,
       @retrofit2.http.Part("podNamespace") podNamespace: RequestBody,
       @retrofit2.http.Part("resources") resources: RequestBody,
