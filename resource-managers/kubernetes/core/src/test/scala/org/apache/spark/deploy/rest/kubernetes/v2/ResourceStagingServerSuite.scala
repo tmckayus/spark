@@ -73,8 +73,9 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
   }
 
   private def runUploadAndDownload(sslOptions: SSLOptions): Unit = {
+    val scheme = if (sslOptions.enabled) "https" else "http"
     val retrofitService = RetrofitUtils.createRetrofitClient(
-      s"http://localhost:$serverPort/",
+      s"$scheme://127.0.0.1:$serverPort/",
       classOf[ResourceStagingServiceRetrofit],
       sslOptions)
     val resourcesBytes = Array[Byte](1, 2, 3, 4)
