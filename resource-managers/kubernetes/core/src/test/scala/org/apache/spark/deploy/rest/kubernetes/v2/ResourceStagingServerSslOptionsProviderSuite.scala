@@ -30,13 +30,15 @@ import org.apache.spark.util.Utils
 
 class ResourceStagingServerSslOptionsProviderSuite extends SparkFunSuite with BeforeAndAfter {
 
-  private val SSL_TEMP_DIR = Utils.createTempDir(namePrefix = "resource-staging-server-ssl-test")
-  private val KEYSTORE_FILE = new File(SSL_TEMP_DIR, "keyStore.jks")
+  private var sslTempDir: File = _
+  private var keyStoreFile: File = _
 
   private var sparkConf: SparkConf = _
   private var sslOptionsProvider: ResourceStagingServerSslOptionsProvider = _
 
   before {
+    sslTempDir = Utils.createTempDir(namePrefix = "resource-staging-server-ssl-test")
+    keyStoreFile = new File(sslTempDir, "keyStore.jks")
     sparkConf = new SparkConf(true)
     sslOptionsProvider = new ResourceStagingServerSslOptionsProviderImpl(sparkConf)
   }
@@ -44,16 +46,18 @@ class ResourceStagingServerSslOptionsProviderSuite extends SparkFunSuite with Be
   test("Default SparkConf does not have TLS enabled.") {
     assert(sslOptionsProvider.getSslOptions === SSLOptions())
     assert(!sslOptionsProvider.getSslOptions.enabled)
+    keyStoreFile.delete()
+    sslTempDir.delete()
   }
 
   test("Setting keyStore, key password, and key field directly.") {
     sparkConf.set("spark.ssl.kubernetes.resourceStagingServer.enabled", "true")
-      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", KEYSTORE_FILE.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", keyStoreFile.getAbsolutePath)
       .set("spark.ssl.kubernetes.resourceStagingServer.keyStorePassword", "keyStorePassword")
       .set("spark.ssl.kubernetes.resourceStagingServer.keyPassword", "keyPassword")
     val sslOptions = sslOptionsProvider.getSslOptions
     assert(sslOptions.enabled, "SSL should be enabled.")
-    assert(sslOptions.keyStore.map(_.getAbsolutePath) === Some(KEYSTORE_FILE.getAbsolutePath),
+    assert(sslOptions.keyStore.map(_.getAbsolutePath) === Some(keyStoreFile.getAbsolutePath),
       "Incorrect keyStore path or it was not set.")
     assert(sslOptions.keyStorePassword === Some("keyStorePassword"),
       "Incorrect keyStore password or it was not set.")
@@ -84,12 +88,12 @@ class ResourceStagingServerSslOptionsProviderSuite extends SparkFunSuite with Be
   }
 
   test("Using password files should read from the appropriate locations.") {
-    val keyStorePasswordFile = new File(SSL_TEMP_DIR, "keyStorePassword.txt")
+    val keyStorePasswordFile = new File(sslTempDir, "keyStorePassword.txt")
     Files.write("keyStorePassword", keyStorePasswordFile, Charsets.UTF_8)
-    val keyPasswordFile = new File(SSL_TEMP_DIR, "keyPassword.txt")
+    val keyPasswordFile = new File(sslTempDir, "keyPassword.txt")
     Files.write("keyPassword", keyPasswordFile, Charsets.UTF_8)
     sparkConf.set("spark.ssl.kubernetes.resourceStagingServer.enabled", "true")
-      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", KEYSTORE_FILE.getAbsolutePath)
+      .set("spark.ssl.kubernetes.resourceStagingServer.keyStore", keyStoreFile.getAbsolutePath)
       .set("spark.ssl.kubernetes.resourceStagingServer.keyStorePasswordFile",
         keyStorePasswordFile.getAbsolutePath)
       .set("spark.ssl.kubernetes.resourceStagingServer.keyPasswordFile", keyPasswordFile.getAbsolutePath)

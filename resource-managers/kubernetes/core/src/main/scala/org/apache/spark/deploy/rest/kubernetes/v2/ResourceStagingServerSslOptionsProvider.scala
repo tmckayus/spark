@@ -24,13 +24,14 @@ import com.google.common.io.Files
 import org.apache.spark.{SecurityManager => SparkSecurityManager, SparkConf, SparkException, SSLOptions}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.rest.kubernetes.v1.PemsToKeyStoreConverter
+import org.apache.spark.internal.Logging
 
 private[spark] trait ResourceStagingServerSslOptionsProvider {
   def getSslOptions: SSLOptions
 }
 
 private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: SparkConf)
-    extends ResourceStagingServerSslOptionsProvider {
+    extends ResourceStagingServerSslOptionsProvider with Logging {
   def getSslOptions: SSLOptions = {
     val baseSslOptions = new SparkSecurityManager(sparkConf)
       .getSSLOptions("kubernetes.resourceStagingServer")
@@ -38,6 +39,10 @@ private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: Spar
     val maybeCertPem = sparkConf.get(DEPENDENCY_SERVER_CERT_PEM)
     val maybeKeyStorePasswordFile = sparkConf.get(DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE)
     val maybeKeyPasswordFile = sparkConf.get(DEPENDENCY_SERVER_KEYSTORE_KEY_PASSWORD_FILE)
+
+    logSslConfigurations(
+      baseSslOptions, maybeKeyPem, maybeCertPem, maybeKeyStorePasswordFile, maybeKeyPasswordFile)
+
     requireNandDefined(baseSslOptions.keyStore, maybeKeyPem,
       "Shouldn't provide both key PEM and keyStore files for TLS.")
     requireNandDefined(baseSslOptions.keyStore, maybeCertPem,
@@ -46,14 +51,12 @@ private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: Spar
       "Shouldn't provide both the keyStore password value and the keyStore password file.")
     requireNandDefined(baseSslOptions.keyPassword, maybeKeyPasswordFile,
       "Shouldn't provide both the keyStore key password value and the keyStore key password file.")
-    maybeKeyPem.foreach { _ =>
-      require(maybeCertPem.isDefined,
-        "When providing a key PEM file, the associated certificate PEM must also be provided.")
-    }
-    maybeCertPem.foreach { _ =>
-      require(maybeKeyPem.isDefined,
-        "When providing a certificate PEM file, the associated key PEM must also be provided.")
-    }
+    requireBothOrNeitherDefined(
+      maybeKeyPem,
+      maybeCertPem,
+      "When providing a certificate PEM file, the key PEM file must also be provided.",
+      "When providing a key PEM file, the certificate PEM file must also be provided.")
+
     val resolvedKeyStorePassword = baseSslOptions.keyStorePassword
       .orElse(maybeKeyStorePasswordFile.map { keyStorePasswordFile =>
         safeFileToString(keyStorePasswordFile, "KeyStore password file")
@@ -78,6 +81,41 @@ private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: Spar
       keyStore = resolvedKeyStore,
       keyStorePassword = resolvedKeyStorePassword,
       keyPassword = resolvedKeyStoreKeyPassword)
+  }
+
+  private def logSslConfigurations(
+      baseSslOptions: SSLOptions,
+      maybeKeyPem: Option[String],
+      maybeCertPem: Option[String],
+      maybeKeyStorePasswordFile: Option[String],
+      maybeKeyPasswordFile: Option[String]) = {
+    logDebug("The following SSL configurations were provided for the resource staging server:")
+    logDebug(s"KeyStore File: ${baseSslOptions.keyStore.map(_.getAbsolutePath).getOrElse("N/A")}")
+    logDebug("KeyStore Password: " +
+      baseSslOptions.keyStorePassword.map(_ => "<present_but_redacted>").getOrElse("N/A"))
+    logDebug(s"KeyStore Password File: ${maybeKeyStorePasswordFile.getOrElse("N/A")}")
+    logDebug("Key Password: " +
+      baseSslOptions.keyPassword.map(_ => "<present_but_redacted>").getOrElse("N/A"))
+    logDebug(s"Key Password File: ${maybeKeyPasswordFile.getOrElse("N/A")}")
+    logDebug(s"KeyStore Type: ${baseSslOptions.keyStoreType.getOrElse("N/A")}")
+    logDebug(s"Key PEM: ${maybeKeyPem.getOrElse("N/A")}")
+    logDebug(s"Certificate PEM: ${maybeCertPem.getOrElse("N/A")}")
+  }
+
+  private def requireBothOrNeitherDefined(
+      opt1: Option[_],
+      opt2: Option[_],
+      errMessageWhenFirstIsMissing: String,
+      errMessageWhenSecondIsMissing: String): Unit = {
+    requireSecondIfFirstIsDefined(opt1, opt2, errMessageWhenSecondIsMissing)
+    requireSecondIfFirstIsDefined(opt2, opt1, errMessageWhenFirstIsMissing)
+  }
+
+  private def requireSecondIfFirstIsDefined(
+      opt1: Option[_], opt2: Option[_], errMessageWhenSecondIsMissing: String): Unit = {
+    opt1.foreach { _ =>
+      require(opt2.isDefined, errMessageWhenSecondIsMissing)
+    }
   }
 
   private def requireNandDefined(opt1: Option[_], opt2: Option[_], errMessage: String): Unit = {

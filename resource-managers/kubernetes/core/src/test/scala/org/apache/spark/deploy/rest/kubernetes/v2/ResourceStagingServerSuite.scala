@@ -59,14 +59,17 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
 
   test("Enable SSL on the server") {
     val (keyStore, trustStore) = SSLUtils.generateKeyStoreTrustStorePair(
-      "127.0.0.1", "changeit", "changeit", "changeit")
+      ipAddress = "127.0.0.1",
+      keyStorePassword = "keyStore",
+      keyPassword = "key",
+      trustStorePassword = "trustStore")
     val sslOptions = SSLOptions(
       enabled = true,
       keyStore = Some(keyStore),
-      keyStorePassword = Some("changeit"),
-      keyPassword = Some("changeit"),
+      keyStorePassword = Some("keyStore"),
+      keyPassword = Some("key"),
       trustStore = Some(trustStore),
-      trustStorePassword = Some("changeit"))
+      trustStorePassword = Some("trustStore"))
     sslOptionsProvider.setOptions(sslOptions)
     server.start()
     runUploadAndDownload(sslOptions)

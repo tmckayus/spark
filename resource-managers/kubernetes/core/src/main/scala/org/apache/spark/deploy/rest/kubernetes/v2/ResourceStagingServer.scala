@@ -34,13 +34,14 @@ import scala.collection.JavaConverters._
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.config._
+import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.{ConfigReader, SparkConfigProvider}
 import org.apache.spark.util.Utils
 
 private[spark] class ResourceStagingServer(
     port: Int,
     serviceInstance: ResourceStagingService,
-    sslOptionsProvider: ResourceStagingServerSslOptionsProvider) {
+    sslOptionsProvider: ResourceStagingServerSslOptionsProvider) extends Logging {
 
   private var jettyServer: Option[Server] = None
 
@@ -83,6 +84,7 @@ private[spark] class ResourceStagingServer(
     server.setHandler(contextHandler)
     server.start()
     jettyServer = Some(server)
+    logInfo(s"Resource staging server started on port $port.")
   }
 
   def join(): Unit = jettyServer.foreach(_.join())
