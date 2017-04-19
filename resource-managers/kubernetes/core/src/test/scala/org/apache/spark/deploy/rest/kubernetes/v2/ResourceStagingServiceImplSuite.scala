@@ -20,7 +20,6 @@ import java.io.{ByteArrayInputStream, File}
 import java.nio.file.Paths
 
 import com.google.common.io.Files
-import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.deploy.rest.KubernetesCredentials
