@@ -31,7 +31,7 @@ import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
 import org.apache.spark.util.Utils
 
 /**
- * Tests for KubernetesSparkDependencyServer and its APIs. Note that this is not an end-to-end
+ * Tests for {@link ResourceStagingServer} and its APIs. Note that this is not an end-to-end
  * integration test, and as such does not upload and download files in tar.gz as would be done
  * in production. Thus we use the retrofit clients directly despite the fact that in practice
  * we would likely want to create an opinionated abstraction on top of the retrofit client; we
