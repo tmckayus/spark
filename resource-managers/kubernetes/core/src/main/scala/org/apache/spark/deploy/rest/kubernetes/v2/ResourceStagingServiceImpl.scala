@@ -22,7 +22,7 @@ import java.util.UUID
 import javax.ws.rs.core.StreamingOutput
 
 import com.google.common.io.{BaseEncoding, ByteStreams, Files}
-import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 
 import org.apache.spark.SparkException
 import org.apache.spark.deploy.rest.KubernetesCredentials
@@ -32,11 +32,9 @@ import org.apache.spark.util.Utils
 private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
     extends ResourceStagingService with Logging {
 
-  private val DIRECTORIES_LOCK = new Object
-  private val SPARK_APPLICATION_DEPENDENCIES_LOCK = new Object
   private val SECURE_RANDOM = new SecureRandom()
   // TODO clean up these resources based on the driver's lifecycle
-  private val sparkApplicationDependencies = mutable.Map.empty[String, SparkApplicationDependencies]
+  private val sparkApplicationDependencies = TrieMap.empty[String, ApplicationResources]
 
   override def uploadResources(
       podLabels: Map[String, String],
@@ -51,24 +49,20 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
     val namespaceDir = new File(dependenciesRootDir, podNamespace)
     val resourcesDir = new File(namespaceDir, resourcesId)
     try {
-      DIRECTORIES_LOCK.synchronized {
-        if (!resourcesDir.exists()) {
-          if (!resourcesDir.mkdirs()) {
-            throw new SparkException("Failed to create dependencies directory for application" +
-              s" at ${resourcesDir.getAbsolutePath}")
-          }
+      if (!resourcesDir.exists()) {
+        if (!resourcesDir.mkdirs()) {
+          throw new SparkException("Failed to create dependencies directory for application" +
+            s" at ${resourcesDir.getAbsolutePath}")
         }
       }
       // TODO encrypt the written data with the secret.
       val resourcesTgz = new File(resourcesDir, "resources.tgz")
       Utils.tryWithResource(new FileOutputStream(resourcesTgz)) { ByteStreams.copy(resources, _) }
-      SPARK_APPLICATION_DEPENDENCIES_LOCK.synchronized {
-        sparkApplicationDependencies(applicationSecret) = SparkApplicationDependencies(
-          podLabels,
-          podNamespace,
-          resourcesTgz,
-          kubernetesCredentials)
-      }
+      sparkApplicationDependencies(applicationSecret) = ApplicationResources(
+        podLabels,
+        podNamespace,
+        resourcesTgz,
+        kubernetesCredentials)
       applicationSecret
     } catch {
       case e: Throwable =>
@@ -80,11 +74,9 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
   }
 
   override def downloadResources(applicationSecret: String): StreamingOutput = {
-    val applicationDependencies = SPARK_APPLICATION_DEPENDENCIES_LOCK.synchronized {
-      sparkApplicationDependencies
+    val applicationDependencies = sparkApplicationDependencies
         .get(applicationSecret)
         .getOrElse(throw new SparkException("No application found for the provided token."))
-    }
     new StreamingOutput {
       override def write(outputStream: OutputStream) = {
         Files.copy(applicationDependencies.resourcesTgz, outputStream)
@@ -93,7 +85,7 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
   }
 }
 
-private case class SparkApplicationDependencies(
+private case class ApplicationResources(
   podLabels: Map[String, String],
   podNamespace: String,
   resourcesTgz: File,
