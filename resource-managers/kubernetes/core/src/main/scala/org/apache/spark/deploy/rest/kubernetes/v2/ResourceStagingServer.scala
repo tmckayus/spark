@@ -95,7 +95,7 @@ private[spark] class ResourceStagingServer(
   }
 }
 
-object KubernetesSparkDependencyServer {
+object ResourceStagingServer {
   def main(args: Array[String]): Unit = {
     val sparkConf = new SparkConf(true)
     if (args.nonEmpty) {
