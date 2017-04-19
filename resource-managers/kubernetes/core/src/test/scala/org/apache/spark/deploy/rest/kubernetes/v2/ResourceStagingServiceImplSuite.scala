@@ -32,7 +32,7 @@ import org.apache.spark.util.Utils
  * implementation methods directly as opposed to over HTTP, as well as check the
  * data written to the underlying disk.
  */
-class ResourceStagingServiceImplSuite extends SparkFunSuite with BeforeAndAfter {
+class ResourceStagingServiceImplSuite extends SparkFunSuite {
 
   private val dependencyRootDir = Utils.createTempDir()
   private val serviceImpl = new ResourceStagingServiceImpl(dependencyRootDir)
@@ -52,7 +52,7 @@ class ResourceStagingServiceImplSuite extends SparkFunSuite with BeforeAndAfter 
     val resourceDirs = resourceNamespaceDir.listFiles()
     assert(resourceDirs.length === 1, s"Resource root directory did not have exactly one" +
       s" subdirectory. Got: ${resourceDirs.map(_.getAbsolutePath).mkString(",")}")
-    val resourceTgz = new File(resourceDirs(0), "resources.tgz")
+    val resourceTgz = new File(resourceDirs(0), "resources.data")
     assert(resourceTgz.isFile,
       s"Resources written to ${resourceTgz.getAbsolutePath} does not exist or is not a file.")
     val resourceTgzBytes = Files.toByteArray(resourceTgz)

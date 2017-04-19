@@ -56,7 +56,7 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
         }
       }
       // TODO encrypt the written data with the secret.
-      val resourcesTgz = new File(resourcesDir, "resources.tgz")
+      val resourcesTgz = new File(resourcesDir, "resources.data")
       Utils.tryWithResource(new FileOutputStream(resourcesTgz)) { ByteStreams.copy(resources, _) }
       sparkApplicationDependencies(applicationSecret) = ApplicationResources(
         podLabels,
