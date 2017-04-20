@@ -98,8 +98,10 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
         okhttp3.MediaType.parse(MediaType.APPLICATION_JSON), kubernetesCredentialsString)
     val uploadResponse = retrofitService.uploadResources(
       labelsRequestBody, namespaceRequestBody, resourcesRequestBody, kubernetesCredentialsBody)
-    val secret = getTypedResponseResult(uploadResponse)
-    checkResponseBodyBytesMatches(retrofitService.downloadResources(secret), resourcesBytes)
+    val resourceIdentifier = getTypedResponseResult(uploadResponse)
+    checkResponseBodyBytesMatches(
+      retrofitService.downloadResources(
+        resourceIdentifier.resourceId, resourceIdentifier.resourceSecret), resourcesBytes)
   }
 
   private def getTypedResponseResult[T](call: Call[T]): T = {

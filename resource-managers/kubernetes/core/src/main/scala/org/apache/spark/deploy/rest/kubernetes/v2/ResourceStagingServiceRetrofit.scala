@@ -18,7 +18,7 @@ package org.apache.spark.deploy.rest.kubernetes.v2
 
 import okhttp3.{RequestBody, ResponseBody}
 import retrofit2.Call
-import retrofit2.http.{Multipart, Streaming}
+import retrofit2.http.{Multipart, Path, Streaming}
 
 /**
  * Retrofit-compatible variant of {@link ResourceStagingService}. For documentation on
@@ -27,16 +27,16 @@ import retrofit2.http.{Multipart, Streaming}
 private[spark] trait ResourceStagingServiceRetrofit {
 
   @Multipart
-  @retrofit2.http.POST("/api/resources/")
+  @retrofit2.http.POST("/api/v0/resources/")
   def uploadResources(
       @retrofit2.http.Part("podLabels") podLabels: RequestBody,
       @retrofit2.http.Part("podNamespace") podNamespace: RequestBody,
       @retrofit2.http.Part("resources") resources: RequestBody,
       @retrofit2.http.Part("kubernetesCredentials")
-          kubernetesCredentials: RequestBody): Call[String]
+          kubernetesCredentials: RequestBody): Call[StagedResourceIdentifier]
 
   @Streaming
-  @retrofit2.http.GET("/api/resources/")
-  def downloadResources(
-      @retrofit2.http.Header("Authorization") applicationSecret: String): Call[ResponseBody]
+  @retrofit2.http.GET("/api/v0/resources/{resourceId}")
+  def downloadResources(@Path("resourceId") resourceId: String,
+      @retrofit2.http.Header("Authorization") resourceSecret: String): Call[ResponseBody]
 }

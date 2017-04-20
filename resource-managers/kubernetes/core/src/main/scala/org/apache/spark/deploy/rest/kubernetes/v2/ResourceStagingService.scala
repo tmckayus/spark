@@ -17,7 +17,7 @@
 package org.apache.spark.deploy.rest.kubernetes.v2
 
 import java.io.InputStream
-import javax.ws.rs.{Consumes, GET, HeaderParam, Path, POST, Produces}
+import javax.ws.rs.{Consumes, GET, HeaderParam, Path, PathParam, POST, Produces}
 import javax.ws.rs.core.{MediaType, StreamingOutput}
 
 import org.glassfish.jersey.media.multipart.FormDataParam
@@ -40,11 +40,11 @@ import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
  * provide multiple resource bundles simply by hitting the upload endpoint multiple times and
  * downloading each bundle with the appropriate secret.
  */
-@Path("/")
+@Path("/v0")
 private[spark] trait ResourceStagingService {
 
   /**
-   * Register an application with the dependency service, so that pods with the given labels can
+   * Register a resource with the dependency service, so that pods with the given labels can
    * retrieve them when they run.
    *
    * @param resources Application resources to upload, compacted together in tar + gzip format.
@@ -62,14 +62,14 @@ private[spark] trait ResourceStagingService {
    */
   @POST
   @Consumes(Array(MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN))
-  @Produces(Array(MediaType.TEXT_PLAIN))
-  @Path("/resources/")
+  @Produces(Array(MediaType.APPLICATION_JSON))
+  @Path("/resources")
   def uploadResources(
       @FormDataParam("podLabels") podLabels: Map[String, String],
       @FormDataParam("podNamespace") podNamespace: String,
       @FormDataParam("resources") resources: InputStream,
       @FormDataParam("kubernetesCredentials") kubernetesCredentials: KubernetesCredentials)
-      : String
+      : StagedResourceIdentifier
 
   /**
    * Download an application's resources. The resources are provided as a stream, where the stream's
@@ -78,7 +78,8 @@ private[spark] trait ResourceStagingService {
   @GET
   @Consumes(Array(MediaType.APPLICATION_JSON))
   @Produces(Array(MediaType.APPLICATION_OCTET_STREAM))
-  @Path("/resources/")
+  @Path("/resources/{resourceId}")
   def downloadResources(
-      @HeaderParam("Authorization") applicationSecret: String): StreamingOutput
+      @PathParam("resourceId") resourceId: String,
+      @HeaderParam("Authorization") resourceSecret: String): StreamingOutput
 }
