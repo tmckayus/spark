@@ -27,7 +27,7 @@ import retrofit2.http.{Multipart, Streaming}
 private[spark] trait ResourceStagingServiceRetrofit {
 
   @Multipart
-  @retrofit2.http.PUT("/api/resources/upload")
+  @retrofit2.http.POST("/api/resources/")
   def uploadResources(
       @retrofit2.http.Part("podLabels") podLabels: RequestBody,
       @retrofit2.http.Part("podNamespace") podNamespace: RequestBody,
@@ -36,7 +36,7 @@ private[spark] trait ResourceStagingServiceRetrofit {
           kubernetesCredentials: RequestBody): Call[String]
 
   @Streaming
-  @retrofit2.http.GET("/api/resources/download")
+  @retrofit2.http.GET("/api/resources/")
   def downloadResources(
       @retrofit2.http.Header("Authorization") applicationSecret: String): Call[ResponseBody]
 }

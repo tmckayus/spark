@@ -17,7 +17,7 @@
 package org.apache.spark.deploy.rest.kubernetes.v2
 
 import java.io.InputStream
-import javax.ws.rs.{Consumes, GET, HeaderParam, Path, Produces, PUT, QueryParam}
+import javax.ws.rs.{Consumes, GET, HeaderParam, Path, POST, Produces}
 import javax.ws.rs.core.{MediaType, StreamingOutput}
 
 import org.glassfish.jersey.media.multipart.FormDataParam
@@ -60,10 +60,10 @@ private[spark] trait ResourceStagingService {
    *                              the data uploaded through this endpoint is cleared.
    * @return A unique token that should be provided when retrieving these dependencies later.
    */
-  @PUT
+  @POST
   @Consumes(Array(MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN))
   @Produces(Array(MediaType.TEXT_PLAIN))
-  @Path("/resources/upload")
+  @Path("/resources/")
   def uploadResources(
       @FormDataParam("podLabels") podLabels: Map[String, String],
       @FormDataParam("podNamespace") podNamespace: String,
@@ -78,7 +78,7 @@ private[spark] trait ResourceStagingService {
   @GET
   @Consumes(Array(MediaType.APPLICATION_JSON))
   @Produces(Array(MediaType.APPLICATION_OCTET_STREAM))
-  @Path("/resources/download")
+  @Path("/resources/")
   def downloadResources(
       @HeaderParam("Authorization") applicationSecret: String): StreamingOutput
 }
