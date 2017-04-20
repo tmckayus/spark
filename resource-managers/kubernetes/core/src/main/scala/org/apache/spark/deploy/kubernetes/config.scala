@@ -297,26 +297,26 @@ package object config {
       .intConf
       .createWithDefault(10000)
 
-  private[spark] val DEPENDENCY_SERVER_KEY_PEM =
+  private[spark] val RESOURCE_STAGING_SERVER_KEY_PEM =
     ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyPem")
       .doc("Key PEM file to use when having the Kubernetes dependency server listen on TLS.")
       .stringConf
       .createOptional
 
-  private[spark] val DEPENDENCY_SERVER_CERT_PEM =
+  private[spark] val RESOURCE_STAGING_SERVER_CERT_PEM =
     ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.serverCertPem")
       .doc("Certificate PEM file to use when having the Kubernetes dependency server" +
         " listen on TLS.")
       .stringConf
       .createOptional
 
-  private[spark] val DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE =
+  private[spark] val RESOURCE_STAGING_SERVER_KEYSTORE_PASSWORD_FILE =
     ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyStorePasswordFile")
       .doc("File containing the keystore password for the Kubernetes dependency server.")
       .stringConf
       .createOptional
 
-  private[spark] val DEPENDENCY_SERVER_KEYSTORE_KEY_PASSWORD_FILE =
+  private[spark] val RESOURCE_STAGING_SERVER_KEYSTORE_KEY_PASSWORD_FILE =
     ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyPasswordFile")
       .doc("File containing the key password for the Kubernetes dependency server.")
       .stringConf

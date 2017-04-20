@@ -35,10 +35,10 @@ private[spark] class ResourceStagingServerSslOptionsProviderImpl(sparkConf: Spar
   def getSslOptions: SSLOptions = {
     val baseSslOptions = new SparkSecurityManager(sparkConf)
       .getSSLOptions("kubernetes.resourceStagingServer")
-    val maybeKeyPem = sparkConf.get(DEPENDENCY_SERVER_KEY_PEM)
-    val maybeCertPem = sparkConf.get(DEPENDENCY_SERVER_CERT_PEM)
-    val maybeKeyStorePasswordFile = sparkConf.get(DEPENDENCY_SERVER_KEYSTORE_PASSWORD_FILE)
-    val maybeKeyPasswordFile = sparkConf.get(DEPENDENCY_SERVER_KEYSTORE_KEY_PASSWORD_FILE)
+    val maybeKeyPem = sparkConf.get(RESOURCE_STAGING_SERVER_KEY_PEM)
+    val maybeCertPem = sparkConf.get(RESOURCE_STAGING_SERVER_CERT_PEM)
+    val maybeKeyStorePasswordFile = sparkConf.get(RESOURCE_STAGING_SERVER_KEYSTORE_PASSWORD_FILE)
+    val maybeKeyPasswordFile = sparkConf.get(RESOURCE_STAGING_SERVER_KEYSTORE_KEY_PASSWORD_FILE)
 
     logSslConfigurations(
       baseSslOptions, maybeKeyPem, maybeCertPem, maybeKeyStorePasswordFile, maybeKeyPasswordFile)
