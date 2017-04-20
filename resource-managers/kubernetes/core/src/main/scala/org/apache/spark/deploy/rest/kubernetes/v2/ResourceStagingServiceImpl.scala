@@ -19,6 +19,7 @@ package org.apache.spark.deploy.rest.kubernetes.v2
 import java.io.{File, FileOutputStream, InputStream, OutputStream}
 import java.security.SecureRandom
 import java.util.UUID
+import javax.ws.rs.{NotAuthorizedException, NotFoundException}
 import javax.ws.rs.core.StreamingOutput
 
 import com.google.common.io.{BaseEncoding, ByteStreams, Files}
@@ -34,20 +35,20 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
 
   private val SECURE_RANDOM = new SecureRandom()
   // TODO clean up these resources based on the driver's lifecycle
-  private val sparkApplicationDependencies = TrieMap.empty[String, ApplicationResources]
+  private val stagedResources = TrieMap.empty[String, StagedResources]
 
   override def uploadResources(
       podLabels: Map[String, String],
       podNamespace: String,
       resources: InputStream,
-      kubernetesCredentials: KubernetesCredentials): String = {
-    val resourcesId = UUID.randomUUID().toString
+      kubernetesCredentials: KubernetesCredentials): StagedResourceIdentifier = {
+    val resourceId = UUID.randomUUID().toString
     val secretBytes = new Array[Byte](1024)
     SECURE_RANDOM.nextBytes(secretBytes)
-    val applicationSecret = resourcesId + "-" + BaseEncoding.base64().encode(secretBytes)
+    val resourceSecret = resourceId + "-" + BaseEncoding.base64().encode(secretBytes)
 
     val namespaceDir = new File(dependenciesRootDir, podNamespace)
-    val resourcesDir = new File(namespaceDir, resourcesId)
+    val resourcesDir = new File(namespaceDir, resourceId)
     try {
       if (!resourcesDir.exists()) {
         if (!resourcesDir.mkdirs()) {
@@ -58,12 +59,13 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
       // TODO encrypt the written data with the secret.
       val resourcesTgz = new File(resourcesDir, "resources.data")
       Utils.tryWithResource(new FileOutputStream(resourcesTgz)) { ByteStreams.copy(resources, _) }
-      sparkApplicationDependencies(applicationSecret) = ApplicationResources(
+      stagedResources(resourceId) = StagedResources(
+        resourceSecret,
         podLabels,
         podNamespace,
         resourcesTgz,
         kubernetesCredentials)
-      applicationSecret
+      StagedResourceIdentifier(resourceId, resourceSecret)
     } catch {
       case e: Throwable =>
         if (!resourcesDir.delete()) {
@@ -73,20 +75,24 @@ private[spark] class ResourceStagingServiceImpl(dependenciesRootDir: File)
     }
   }
 
-  override def downloadResources(applicationSecret: String): StreamingOutput = {
-    val applicationDependencies = sparkApplicationDependencies
-        .get(applicationSecret)
-        .getOrElse(throw new SparkException("No application found for the provided token."))
+  override def downloadResources(resourceId: String, resourceSecret: String): StreamingOutput = {
+    val resource = stagedResources
+        .get(resourceId)
+        .getOrElse(throw new NotFoundException(s"No resource bundle found with id $resourceId"))
+    if (!resource.resourceSecret.equals(resourceSecret)) {
+      throw new NotAuthorizedException(s"Unauthorized to download resource with id $resourceId")
+    }
     new StreamingOutput {
       override def write(outputStream: OutputStream) = {
-        Files.copy(applicationDependencies.resourcesTgz, outputStream)
+        Files.copy(resource.resourcesFile, outputStream)
       }
     }
   }
 }
 
-private case class ApplicationResources(
+private case class StagedResources(
+  resourceSecret: String,
   podLabels: Map[String, String],
   podNamespace: String,
-  resourcesTgz: File,
+  resourcesFile: File,
   kubernetesCredentials: KubernetesCredentials)
