@@ -16,10 +16,17 @@
  */
 package org.apache.spark.deploy.kubernetes.submit.v2
 
-import org.scalatest.BeforeAndAfter
+import io.fabric8.kubernetes.api.model.Secret
 
-import org.apache.spark.SparkFunSuite
+private[spark] trait SubmittedDependencyInitContainerVolumesPluginProvider {
+  def getInitContainerVolumesPlugin(initContainerSecret: Secret)
+      : SubmittedDependencyInitContainerVolumesPlugin
+}
 
-class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
-  // TODO
+private[spark] class SubmittedDependencyInitContainerVolumesPluginProviderImpl
+    extends SubmittedDependencyInitContainerVolumesPluginProvider {
+  override def getInitContainerVolumesPlugin(initContainerSecret: Secret)
+      : SubmittedDependencyInitContainerVolumesPlugin = {
+    new SubmittedDependencyInitContainerVolumesPluginImpl(initContainerSecret)
+  }
 }

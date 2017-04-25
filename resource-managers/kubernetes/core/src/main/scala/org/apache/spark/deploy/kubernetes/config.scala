@@ -305,42 +305,43 @@ package object config extends Logging {
       .stringConf
       .createOptional
 
+  private[spark] val RESOURCE_STAGING_SERVER_SSL_NAMESPACE = "kubernetes.resourceStagingServer"
   private[spark] val RESOURCE_STAGING_SERVER_CERT_PEM =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.serverCertPem")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.serverCertPem")
       .doc("Certificate PEM file to use when having the Kubernetes dependency server" +
         " listen on TLS.")
       .stringConf
       .createOptional
 
   private[spark] val RESOURCE_STAGING_SERVER_KEYSTORE_PASSWORD_FILE =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyStorePasswordFile")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.keyStorePasswordFile")
       .doc("File containing the keystore password for the Kubernetes dependency server.")
       .stringConf
       .createOptional
 
   private[spark] val RESOURCE_STAGING_SERVER_KEYSTORE_KEY_PASSWORD_FILE =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.keyPasswordFile")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.keyPasswordFile")
       .doc("File containing the key password for the Kubernetes dependency server.")
       .stringConf
       .createOptional
 
   private[spark] val RESOURCE_STAGING_SERVER_SSL_ENABLED =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.enabled")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.enabled")
       .doc("Whether or not to use SSL when communicating with the dependency server.")
       .booleanConf
       .createOptional
   private[spark] val RESOURCE_STAGING_SERVER_TRUSTSTORE_FILE =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.trustStore")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.trustStore")
       .doc("File containing the trustStore to communicate with the Kubernetes dependency server.")
       .stringConf
       .createOptional
   private[spark] val RESOURCE_STAGING_SERVER_TRUSTSTORE_PASSWORD =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.trustStorePassword")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.trustStorePassword")
       .doc("Password for the trustStore for talking to the dependency server.")
       .stringConf
       .createOptional
   private[spark] val RESOURCE_STAGING_SERVER_TRUSTSTORE_TYPE =
-    ConfigBuilder("spark.ssl.kubernetes.resourceStagingServer.trustStoreType")
+    ConfigBuilder(s"spark.ssl.$RESOURCE_STAGING_SERVER_SSL_NAMESPACE.trustStoreType")
       .doc("Type of trustStore for communicating with the dependency server.")
       .stringConf
       .createOptional
@@ -353,63 +354,154 @@ package object config extends Logging {
       .createOptional
 
   private[spark] val INIT_CONTAINER_DOWNLOAD_JARS_RESOURCE_IDENTIFIER =
-    ConfigBuilder("spark.kubernetes.driver.initcontainer.downloadJarsResourceIdentifier")
+    ConfigBuilder("spark.kubernetes.initcontainer.downloadJarsResourceIdentifier")
       .doc("Identifier for the jars tarball that was uploaded to the staging service.")
       .internal()
       .stringConf
       .createOptional
 
   private[spark] val INIT_CONTAINER_DOWNLOAD_JARS_SECRET_LOCATION =
-    ConfigBuilder("spark.kubernetes.driver.initcontainer.downloadJarsSecretLocation")
+    ConfigBuilder("spark.kubernetes.initcontainer.downloadJarsSecretLocation")
       .doc("Location of the application secret to use when the init-container contacts the" +
         " resource staging server to download jars.")
       .internal()
       .stringConf
-      .createWithDefault(INIT_CONTAINER_DOWNLOAD_JARS_SECRET_PATH)
+      .createWithDefault(INIT_CONTAINER_SUBMITTED_JARS_SECRET_PATH)
 
   private[spark] val INIT_CONTAINER_DOWNLOAD_FILES_RESOURCE_IDENTIFIER =
-    ConfigBuilder("spark.kubernetes.driver.initcontainer.downloadFilesResourceIdentifier")
+    ConfigBuilder("spark.kubernetes.initcontainer.downloadFilesResourceIdentifier")
       .doc("Identifier for the files tarball that was uploaded to the staging service.")
       .internal()
       .stringConf
       .createOptional
 
   private[spark] val INIT_CONTAINER_DOWNLOAD_FILES_SECRET_LOCATION =
-    ConfigBuilder("spark.kubernetes.driver.initcontainer.downloadFilesSecretLocation")
+    ConfigBuilder("spark.kubernetes.initcontainer.downloadFilesSecretLocation")
       .doc("Location of the application secret to use when the init-container contacts the" +
         " resource staging server to download files.")
       .internal()
       .stringConf
-      .createWithDefault(INIT_CONTAINER_DOWNLOAD_FILES_SECRET_PATH)
+      .createWithDefault(INIT_CONTAINER_SUBMITTED_FILES_SECRET_PATH)
+
+  private[spark] val INIT_CONTAINER_REMOTE_JARS =
+    ConfigBuilder("spark.kubernetes.initcontainer.remoteJars")
+      .doc("Comma-separated list of jar URIs to download in the init-container. This is inferred" +
+        " from spark.jars.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val INIT_CONTAINER_REMOTE_FILES =
+    ConfigBuilder("spark.kubernetes.initcontainer.remoteFiles")
+      .doc("Comma-separated list of file URIs to download in the init-container. This is inferred" +
+        " from spark.files.")
+      .internal()
+      .stringConf
+      .createOptional
 
   private[spark] val INIT_CONTAINER_DOCKER_IMAGE =
-    ConfigBuilder("spark.kubernetes.driver.initcontainer.docker.image")
-      .doc("Image for the driver's init-container that downloads mounted dependencies.")
+    ConfigBuilder("spark.kubernetes.initcontainer.docker.image")
+      .doc("Image for the driver and executor's init-container that downloads dependencies.")
       .stringConf
-      .createWithDefault(s"spark-driver-init:$sparkVersion")
+      .createWithDefault(s"spark-init:$sparkVersion")
 
-  private[spark] val DRIVER_LOCAL_JARS_DOWNLOAD_LOCATION =
-    ConfigBuilder("spark.kubernetes.driver.mountdependencies.jarsDownloadDir")
-      .doc("Location to download local jars to in the driver. When using spark-submit, this" +
-        " directory must be empty and will be mounted as an empty directory volume on the" +
-        " driver pod.")
+  private[spark] val INIT_CONTAINER_JARS_DOWNLOAD_LOCATION =
+    ConfigBuilder("spark.kubernetes.mountdependencies.jarsDownloadDir")
+      .doc("Location to download jars to in the driver and executors. When using" +
+        " spark-submit, this directory must be empty and will be mounted as an empty directory" +
+        " volume on the driver and executor pod.")
       .stringConf
-      .createWithDefault("/var/spark-data/spark-local-jars")
+      .createWithDefault("/var/spark-data/spark-submitted-jars")
 
-  private[spark] val DRIVER_LOCAL_FILES_DOWNLOAD_LOCATION =
-    ConfigBuilder("spark.kubernetes.driver.mountdependencies.filesDownloadDir")
-      .doc("Location to download local files to in the driver. When using spark-submit, this" +
-        " directory must be empty and will be mounted as an empty directory volume on the" +
-        " driver pod.")
+  private[spark] val INIT_CONTAINER_FILES_DOWNLOAD_LOCATION =
+    ConfigBuilder("spark.kubernetes.mountdependencies.filesDownloadDir")
+      .doc("Location to download files to in the driver and executors. When using" +
+        " spark-submit, this directory must be empty and will be mounted as an empty directory" +
+        " volume on the driver and executor pods.")
       .stringConf
-      .createWithDefault("/var/spark-data/spark-local-files")
+      .createWithDefault("/var/spark-data/spark-submitted-files")
 
-  private[spark] val DRIVER_MOUNT_DEPENDENCIES_INIT_TIMEOUT =
+  private[spark] val REMOTE_JARS_DOWNLOAD_LOCATION =
+    ConfigBuilder("spark.kubernetes.mountdependencies.remoteJars.downloadDir")
+      .doc("Location to download remotely-located (e.g. HDFS) jars to in the driver and" +
+        " executors. When using spark-submit, this directory must be empty and will be" +
+        " mounted as an empty directory volume on the driver and executor pods.")
+      .stringConf
+      .createWithDefault("/var/spark-data/spark-remote-jars")
+
+  private[spark] val REMOTE_FILES_DOWNLOAD_LOCATION =
+    ConfigBuilder("spark.kubernetes.mountdependencies.remoteFiles.downloadDir")
+      .doc("Location to download remotely-located (e.g. HDFS) files to in the driver and" +
+        " executors. When using spark-submit, this directory must be empty and will be mounted" +
+        " as an empty directory volume on the driver and executor pods.")
+      .stringConf
+      .createWithDefault("/var/spark-data/spark-remote-files")
+
+  private[spark] val MOUNT_DEPENDENCIES_INIT_TIMEOUT =
     ConfigBuilder("spark.kubernetes.mountdependencies.mountTimeout")
       .doc("Timeout before aborting the attempt to download and unpack local dependencies from" +
-        " the dependency staging server when initializing the driver pod.")
+        " remote locations and the resource etaging server when initializing the driver and" +
+        " executor pods.")
       .timeConf(TimeUnit.MINUTES)
       .createWithDefault(5)
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_CONFIG_MAP =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.configmapname")
+      .doc("Name of the config map to use in the init-container that retrieves submitted files" +
+        " for the executor.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_CONFIG_MAP_KEY =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.configmapkey")
+      .doc("Key for the entry in the init container config map for submitted files that" +
+        " corresponds to the properties for this init-container.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_SECRET =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.stagingServerSecret")
+      .doc("Name of the secret to mount into the init-container that retrieves submitted files.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_SUBMITTED_FILES_RESOURCE_STAGING_SERVER_SECRET_DIR =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.stagingServerSecretDir")
+      .doc("Directory to mount the executor's init container secret for retrieving submitted" +
+        " files.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_REMOTE_FILES_CONFIG_MAP =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.remoteFiles.configmapname")
+      .doc("Name of the config map to use in the init-container that retrieves remote files" +
+        " for the executor.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_INIT_CONTAINER_REMOTE_FILES_CONFIG_MAP_KEY =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.remoteFiles.configmapkey")
+      .doc("Key for the entry in the init container config map for remote files that" +
+        " corresponds to the properties for this init-container.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_RESOLVED_MOUNTED_CLASSPATH =
+    ConfigBuilder("spark.kubernetes.executor.resolvedMountedClasspath")
+      .doc("Expected resolved classpath after the executor's init-containers download" +
+        " dependencies from the resource staging server and from remote locations, if" +
+        " applicable. The submission client determines this assuming that the executors will" +
+        " download the dependencies in the same way that the driver does.")
+      .internal()
+      .stringConf
+      .toSequence
+      .createWithDefault(Seq.empty[String])
 
   private[spark] def resolveK8sMaster(rawMasterString: String): String = {
     if (!rawMasterString.startsWith("k8s://")) {
