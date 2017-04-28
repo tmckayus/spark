@@ -366,7 +366,8 @@ package object config extends Logging {
         " resource staging server to download jars.")
       .internal()
       .stringConf
-      .createWithDefault(INIT_CONTAINER_SUBMITTED_JARS_SECRET_PATH)
+      .createWithDefault(s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/" +
+        s"$INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY")
 
   private[spark] val INIT_CONTAINER_DOWNLOAD_FILES_RESOURCE_IDENTIFIER =
     ConfigBuilder("spark.kubernetes.initcontainer.downloadFilesResourceIdentifier")
@@ -381,7 +382,8 @@ package object config extends Logging {
         " resource staging server to download files.")
       .internal()
       .stringConf
-      .createWithDefault(INIT_CONTAINER_SUBMITTED_FILES_SECRET_PATH)
+      .createWithDefault(
+        s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/$INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY")
 
   private[spark] val INIT_CONTAINER_REMOTE_JARS =
     ConfigBuilder("spark.kubernetes.initcontainer.remoteJars")
@@ -430,7 +432,7 @@ package object config extends Logging {
       .createWithDefault(5)
 
   private[spark] val EXECUTOR_INIT_CONTAINER_CONFIG_MAP =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.configmapname")
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.configmapname")
       .doc("Name of the config map to use in the init-container that retrieves submitted files" +
         " for the executor.")
       .internal()
@@ -438,7 +440,7 @@ package object config extends Logging {
       .createOptional
 
   private[spark] val EXECUTOR_INIT_CONTAINER_CONFIG_MAP_KEY =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.configmapkey")
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.configmapkey")
       .doc("Key for the entry in the init container config map for submitted files that" +
         " corresponds to the properties for this init-container.")
       .internal()
@@ -446,22 +448,25 @@ package object config extends Logging {
       .createOptional
 
   private[spark] val EXECUTOR_INIT_CONTAINER_SECRET =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.stagingServerSecret")
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.stagingServerSecret.name")
       .doc("Name of the secret to mount into the init-container that retrieves submitted files.")
       .internal()
       .stringConf
       .createOptional
 
-  private[spark] val EXECUTOR_RESOLVED_MOUNTED_CLASSPATH =
-    ConfigBuilder("spark.kubernetes.executor.resolvedMountedClasspath")
-      .doc("Expected resolved classpath after the executor's init-containers download" +
-        " dependencies from the resource staging server and from remote locations, if" +
-        " applicable. The submission client determines this assuming that the executors will" +
-        " download the dependencies in the same way that the driver does.")
+  private[spark] val EXECUTOR_INIT_CONTAINER_SECRET_MOUNT_DIR =
+    ConfigBuilder("spark.kubernetes.initcontainer.executor.stagingServerSecret.mountDir")
+      .doc("Directory to mount the resource staging server secrets into for the executor" +
+        " init-containers. This must be exactly the same as the directory that the submission" +
+        " client mounted the secret into because the config map's properties specify the" +
+        " secret location as to be the same between the driver init-container and the executor" +
+        " init-container. Thus the submission client will always set this and the driver will" +
+        " never rely on a constant or convention, in order to protect against cases where the" +
+        " submission client has a different version from the driver itself, and hence might" +
+        " have different constants loaded in constants.scala.")
       .internal()
       .stringConf
-      .toSequence
-      .createWithDefault(Seq.empty[String])
+      .createOptional
 
   private[spark] def resolveK8sMaster(rawMasterString: String): String = {
     if (!rawMasterString.startsWith("k8s://")) {

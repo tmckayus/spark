@@ -18,15 +18,18 @@ package org.apache.spark.deploy.kubernetes.submit.v2
 
 import io.fabric8.kubernetes.api.model.Secret
 
+import org.apache.spark.deploy.kubernetes.constants._
+
 private[spark] trait SubmittedDependencyInitContainerVolumesPluginProvider {
-  def getInitContainerVolumesPlugin(initContainerSecret: Secret)
-      : SubmittedDependencyInitContainerVolumesPlugin
+  def getInitContainerVolumesPlugin(
+      initContainerSecret: Secret): SubmittedDependencyInitContainerVolumesPlugin
 }
 
 private[spark] class SubmittedDependencyInitContainerVolumesPluginProviderImpl
     extends SubmittedDependencyInitContainerVolumesPluginProvider {
-  override def getInitContainerVolumesPlugin(initContainerSecret: Secret)
-      : SubmittedDependencyInitContainerVolumesPlugin = {
-    new SubmittedDependencyInitContainerVolumesPluginImpl(initContainerSecret)
+  override def getInitContainerVolumesPlugin(
+      initContainerSecret: Secret): SubmittedDependencyInitContainerVolumesPlugin = {
+    new SubmittedDependencyInitContainerVolumesPluginImpl(
+      initContainerSecret, INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH)
   }
 }

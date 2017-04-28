@@ -20,6 +20,7 @@ import io.fabric8.kubernetes.api.model.{ConfigMap, Secret}
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.config._
+import org.apache.spark.deploy.kubernetes.constants._
 
 private[spark] trait ExecutorInitContainerConfiguration {
   /**
@@ -45,6 +46,7 @@ private[spark] class ExecutorInitContainerConfigurationImpl
         initContainerConfigMap.getMetadata.getName)
       .set(EXECUTOR_INIT_CONTAINER_CONFIG_MAP_KEY,
         initContainerConfigMapKey)
+      .set(EXECUTOR_INIT_CONTAINER_SECRET_MOUNT_DIR, INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH)
     initContainerSecret.map { secret =>
       configuredSparkConf.set(EXECUTOR_INIT_CONTAINER_SECRET, secret.getMetadata.getName)
     }.getOrElse(configuredSparkConf)

@@ -38,10 +38,19 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
     val sparkConf = sc.getConf
     val maybeConfigMap = sparkConf.get(EXECUTOR_INIT_CONTAINER_CONFIG_MAP)
     val maybeConfigMapKey = sparkConf.get(EXECUTOR_INIT_CONTAINER_CONFIG_MAP_KEY)
-    val executorInitContainerSecretVolumePlugin = sparkConf.get(EXECUTOR_INIT_CONTAINER_SECRET)
-      .map { secretName =>
-        new SubmittedDependencyInitContainerVolumesPluginImpl(secretName)
-      }
+
+    val maybeExecutorInitContainerSecretName =
+      sparkConf.get(EXECUTOR_INIT_CONTAINER_SECRET)
+    val maybeExecutorInitContainerSecretMount =
+        sparkConf.get(EXECUTOR_INIT_CONTAINER_SECRET_MOUNT_DIR)
+    val executorInitContainerSecretVolumePlugin = for {
+      initContainerSecretName <- maybeExecutorInitContainerSecretName
+      initContainerSecretMountPath <- maybeExecutorInitContainerSecretMount
+    } yield {
+      new SubmittedDependencyInitContainerVolumesPluginImpl(
+        initContainerSecretName,
+        initContainerSecretMountPath)
+    }
     // Only set up the bootstrap if they've provided both the config map key and the config map
     // name. Note that we generally expect both to have been set from spark-submit V2, but we still
     // have V1 code that starts the driver which will not set these. Aside from that, for testing

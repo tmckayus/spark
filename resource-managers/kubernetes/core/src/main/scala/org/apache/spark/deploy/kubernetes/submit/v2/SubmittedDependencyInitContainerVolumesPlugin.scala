@@ -37,16 +37,19 @@ private[spark] trait SubmittedDependencyInitContainerVolumesPlugin {
 }
 
 private[spark] class SubmittedDependencyInitContainerVolumesPluginImpl(
-    initContainerSecretName: String)
+    initContainerSecretName: String,
+    initContainerSecretMountPath: String)
     extends SubmittedDependencyInitContainerVolumesPlugin {
 
-  def this(initContainerSecret: Secret) = this(initContainerSecret.getMetadata.getName)
+  def this(initContainerSecret: Secret, initContainerSecretMountDir: String) = {
+    this(initContainerSecret.getMetadata.getName, initContainerSecretMountDir)
+  }
 
   override def mountResourceStagingServerSecretIntoInitContainer(
       initContainer: ContainerBuilder): ContainerBuilder = {
     initContainer.addNewVolumeMount()
       .withName(INIT_CONTAINER_SECRET_VOLUME_NAME)
-      .withMountPath(INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH)
+      .withMountPath(initContainerSecretMountPath)
       .endVolumeMount()
   }
 

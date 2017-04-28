@@ -99,15 +99,7 @@ package object constants {
   private[spark] val INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY =
     "downloadSubmittedFilesSecret"
   private[spark] val INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY = "trustStore"
-  private[spark] val INIT_CONTAINER_SUBMITTED_JARS_SECRET_PATH =
-    s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/$INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY"
-  private[spark] val INIT_CONTAINER_SUBMITTED_FILES_SECRET_PATH =
-    s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/$INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY"
-  private[spark] val INIT_CONTAINER_SUBMITTED_FILES_TRUSTSTORE_PATH =
-    s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/" +
-      s"$INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY"
-  private[spark] val INIT_CONTAINER_CONFIG_MAP_KEY =
-    "download-submitted-files"
+  private[spark] val INIT_CONTAINER_CONFIG_MAP_KEY = "download-submitted-files"
   private[spark] val INIT_CONTAINER_DOWNLOAD_JARS_VOLUME_NAME = "download-jars-volume"
   private[spark] val INIT_CONTAINER_DOWNLOAD_FILES_VOLUME_NAME = "download-files"
   private[spark] val INIT_CONTAINER_PROPERTIES_FILE_VOLUME = "spark-init-properties"
