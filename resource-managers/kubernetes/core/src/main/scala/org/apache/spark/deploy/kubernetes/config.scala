@@ -421,23 +421,7 @@ package object config extends Logging {
       .stringConf
       .createWithDefault("/var/spark-data/spark-submitted-files")
 
-  private[spark] val REMOTE_JARS_DOWNLOAD_LOCATION =
-    ConfigBuilder("spark.kubernetes.mountdependencies.remoteJars.downloadDir")
-      .doc("Location to download remotely-located (e.g. HDFS) jars to in the driver and" +
-        " executors. When using spark-submit, this directory must be empty and will be" +
-        " mounted as an empty directory volume on the driver and executor pods.")
-      .stringConf
-      .createWithDefault("/var/spark-data/spark-remote-jars")
-
-  private[spark] val REMOTE_FILES_DOWNLOAD_LOCATION =
-    ConfigBuilder("spark.kubernetes.mountdependencies.remoteFiles.downloadDir")
-      .doc("Location to download remotely-located (e.g. HDFS) files to in the driver and" +
-        " executors. When using spark-submit, this directory must be empty and will be mounted" +
-        " as an empty directory volume on the driver and executor pods.")
-      .stringConf
-      .createWithDefault("/var/spark-data/spark-remote-files")
-
-  private[spark] val MOUNT_DEPENDENCIES_INIT_TIMEOUT =
+  private[spark] val INIT_CONTAINER_MOUNT_TIMEOUT =
     ConfigBuilder("spark.kubernetes.mountdependencies.mountTimeout")
       .doc("Timeout before aborting the attempt to download and unpack local dependencies from" +
         " remote locations and the resource etaging server when initializing the driver and" +
@@ -464,30 +448,6 @@ package object config extends Logging {
   private[spark] val EXECUTOR_INIT_CONTAINER_SECRET =
     ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.stagingServerSecret")
       .doc("Name of the secret to mount into the init-container that retrieves submitted files.")
-      .internal()
-      .stringConf
-      .createOptional
-
-  private[spark] val EXECUTOR_INIT_CONTAINER_SUBMITTED_FILES_RESOURCE_STAGING_SERVER_SECRET_DIR =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.submittedfiles.stagingServerSecretDir")
-      .doc("Directory to mount the executor's init container secret for retrieving submitted" +
-        " files.")
-      .internal()
-      .stringConf
-      .createOptional
-
-  private[spark] val EXECUTOR_INIT_CONTAINER_REMOTE_FILES_CONFIG_MAP =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.remoteFiles.configmapname")
-      .doc("Name of the config map to use in the init-container that retrieves remote files" +
-        " for the executor.")
-      .internal()
-      .stringConf
-      .createOptional
-
-  private[spark] val EXECUTOR_INIT_CONTAINER_REMOTE_FILES_CONFIG_MAP_KEY =
-    ConfigBuilder("spark.kubernetes.initcontainer.executor.remoteFiles.configmapkey")
-      .doc("Key for the entry in the init container config map for remote files that" +
-        " corresponds to the properties for this init-container.")
       .internal()
       .stringConf
       .createOptional

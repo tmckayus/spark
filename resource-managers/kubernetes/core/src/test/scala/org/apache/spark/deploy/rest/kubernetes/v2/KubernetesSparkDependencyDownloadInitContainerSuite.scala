@@ -155,8 +155,8 @@ class KubernetesSparkDependencyDownloadInitContainerSuite
         "http://localhost:9000/jar1.jar,hdfs://localhost:9000/jar2.jar")
       .set(INIT_CONTAINER_REMOTE_FILES,
         "http://localhost:9000/file.txt")
-      .set(REMOTE_JARS_DOWNLOAD_LOCATION, downloadJarsDir.getAbsolutePath)
-      .set(REMOTE_FILES_DOWNLOAD_LOCATION, downloadFilesDir.getAbsolutePath)
+      .set(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION, downloadJarsDir.getAbsolutePath)
+      .set(INIT_CONTAINER_FILES_DOWNLOAD_LOCATION, downloadFilesDir.getAbsolutePath)
   }
 
   private def checkWrittenFilesAreTheSameAsOriginal(

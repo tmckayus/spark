@@ -118,7 +118,7 @@ private[spark] class KubernetesSparkDependencyDownloadInitContainer(
   private val remoteJars = sparkConf.get(INIT_CONTAINER_REMOTE_JARS)
   private val remoteFiles = sparkConf.get(INIT_CONTAINER_REMOTE_FILES)
 
-  private val downloadTimeoutMinutes = sparkConf.get(MOUNT_DEPENDENCIES_INIT_TIMEOUT)
+  private val downloadTimeoutMinutes = sparkConf.get(INIT_CONTAINER_MOUNT_TIMEOUT)
 
   def run(): Unit = {
     val resourceStagingServerJarsDownload = Future[Unit] {

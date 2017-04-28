@@ -54,7 +54,7 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
         sparkConf.get(INIT_CONTAINER_DOCKER_IMAGE),
         sparkConf.get(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION),
         sparkConf.get(INIT_CONTAINER_FILES_DOWNLOAD_LOCATION),
-        sparkConf.get(MOUNT_DEPENDENCIES_INIT_TIMEOUT),
+        sparkConf.get(INIT_CONTAINER_MOUNT_TIMEOUT),
         configMap,
         configMapKey,
         executorInitContainerSecretVolumePlugin)

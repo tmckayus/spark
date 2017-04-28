@@ -39,7 +39,7 @@ private[spark] class SparkPodInitContainerBootstrapProviderImpl(sparkConf: Spark
       : SparkPodInitContainerBootstrap = {
     val jarsDownloadPath = sparkConf.get(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION)
     val filesDownloadPath = sparkConf.get(INIT_CONTAINER_FILES_DOWNLOAD_LOCATION)
-    val mountTimeout = sparkConf.get(MOUNT_DEPENDENCIES_INIT_TIMEOUT)
+    val mountTimeout = sparkConf.get(INIT_CONTAINER_MOUNT_TIMEOUT)
     val initContainerImage = sparkConf.get(INIT_CONTAINER_DOCKER_IMAGE)
 
     new SparkPodInitContainerBootstrapImpl(
