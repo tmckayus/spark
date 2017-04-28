@@ -21,12 +21,11 @@ import org.apache.spark.deploy.kubernetes.config._
 
 private[spark] trait ContainerLocalizedFilesResolverProvider {
   def getContainerLocalizedFilesResolver(
-    sparkJars: Seq[String],
-    sparkFiles: Seq[String]): ContainerLocalizedFilesResolver
+      sparkJars: Seq[String], sparkFiles: Seq[String]): ContainerLocalizedFilesResolver
 }
 
 private[spark] class ContainerLocalizedFilesResolverProviderImpl(
-  sparkConf: SparkConf) extends ContainerLocalizedFilesResolverProvider {
+    sparkConf: SparkConf) extends ContainerLocalizedFilesResolverProvider {
   override def getContainerLocalizedFilesResolver(sparkJars: Seq[String], sparkFiles: Seq[String])
       : ContainerLocalizedFilesResolver = {
     val jarsDownloadPath = sparkConf.get(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION)
