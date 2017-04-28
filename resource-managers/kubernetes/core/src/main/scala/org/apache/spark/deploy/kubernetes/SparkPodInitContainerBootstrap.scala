@@ -62,9 +62,9 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
       .withImage(initContainerImage)
       .withImagePullPolicy("IfNotPresent")
       .addNewVolumeMount()
-      .withName(INIT_CONTAINER_PROPERTIES_FILE_VOLUME)
-      .withMountPath(INIT_CONTAINER_PROPERTIES_FILE_DIR)
-      .endVolumeMount()
+        .withName(INIT_CONTAINER_PROPERTIES_FILE_VOLUME)
+        .withMountPath(INIT_CONTAINER_PROPERTIES_FILE_DIR)
+        .endVolumeMount()
       .addToVolumeMounts(sharedVolumeMounts: _*)
       .addToArgs(INIT_CONTAINER_PROPERTIES_FILE_PATH)
     val resolvedInitContainer = submittedDependenciesPlugin.map { plugin =>
