@@ -122,30 +122,7 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
   }
 
   private def runSparkAppAndVerifyCompletion(appResource: String): Unit = {
-    val client = new org.apache.spark.deploy.kubernetes.submit.v2.Client(
-      sparkConf = sparkConf,
-      mainClass = KubernetesSuite.SPARK_PI_MAIN_CLASS,
-      appArgs = Array.empty[String],
-      mainAppResource = appResource,
-      kubernetesClientProvider =
-        new SubmissionKubernetesClientProviderImpl(sparkConf),
-      submittedDepsUploaderProvider =
-        new SubmittedDependencyUploaderProviderImpl(sparkConf),
-      submittedDepsSecretBuilder =
-        new SubmittedDependencySecretBuilderImpl(sparkConf),
-      submittedDepsConfPluginProvider =
-        new SubmittedDependencyInitContainerConfigPluginProviderImpl(sparkConf),
-      submittedDepsVolumesPluginProvider =
-        new SubmittedDependencyInitContainerVolumesPluginProviderImpl(),
-      initContainerConfigMapBuilderProvider =
-        new SparkInitContainerConfigMapBuilderProviderImpl(sparkConf),
-      initContainerBootstrapProvider =
-        new SparkPodInitContainerBootstrapProviderImpl(sparkConf),
-      containerLocalizedFilesResolverProvider =
-        new ContainerLocalizedFilesResolverProviderImpl(sparkConf),
-      executorInitContainerConfiguration =
-        new ExecutorInitContainerConfigurationImpl())
-    client.run()
+    Client.run(sparkConf, appResource, KubernetesSuite.SPARK_PI_MAIN_CLASS, Array.empty[String])
     val driverPod = kubernetesTestComponents.kubernetesClient
       .pods()
       .withLabel("spark-app-locator", APP_LOCATOR_LABEL)

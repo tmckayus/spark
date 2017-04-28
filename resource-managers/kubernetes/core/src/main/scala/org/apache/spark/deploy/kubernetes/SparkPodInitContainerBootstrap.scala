@@ -41,7 +41,7 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
     downloadTimeoutMinutes: Long,
     initContainerConfigMapName: String,
     initContainerConfigMapKey: String,
-    submittedDependenciesPlugin: Option[SubmittedDependencyInitContainerVolumesPlugin])
+    submittedDependencyPlugin: Option[SubmittedDependencyInitContainerVolumesPlugin])
     extends SparkPodInitContainerBootstrap {
 
   override def bootstrapInitContainerAndVolumes(
@@ -67,7 +67,7 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
         .endVolumeMount()
       .addToVolumeMounts(sharedVolumeMounts: _*)
       .addToArgs(INIT_CONTAINER_PROPERTIES_FILE_PATH)
-    val resolvedInitContainer = submittedDependenciesPlugin.map { plugin =>
+    val resolvedInitContainer = submittedDependencyPlugin.map { plugin =>
       plugin.mountResourceStagingServerSecretIntoInitContainer(initContainer)
     }.getOrElse(initContainer).build()
     val podWithBasicVolumes = InitContainerUtil.appendInitContainer(
@@ -95,7 +95,7 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
           .addToVolumeMounts(sharedVolumeMounts: _*)
           .endContainer()
         .endSpec()
-    submittedDependenciesPlugin.map { plugin =>
+    submittedDependencyPlugin.map { plugin =>
       plugin.addResourceStagingServerSecretVolumeToPod(podWithBasicVolumes)
     }.getOrElse(podWithBasicVolumes)
   }

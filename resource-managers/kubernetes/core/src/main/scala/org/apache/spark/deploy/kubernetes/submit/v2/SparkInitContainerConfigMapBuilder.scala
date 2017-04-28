@@ -19,7 +19,6 @@ package org.apache.spark.deploy.kubernetes.submit.v2
 import io.fabric8.kubernetes.api.model.ConfigMap
 
 import org.apache.spark.deploy.kubernetes.config._
-import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.deploy.kubernetes.submit.KubernetesFileUtils
 
 private[spark] trait SparkInitContainerConfigMapBuilder {
@@ -32,16 +31,16 @@ private[spark] trait SparkInitContainerConfigMapBuilder {
 }
 
 private[spark] class SparkInitContainerConfigMapBuilderImpl(
-    kubernetesAppId: String,
     sparkJars: Seq[String],
     sparkFiles: Seq[String],
     jarsDownloadPath: String,
     filesDownloadPath: String,
+    configMapName: String,
+    configMapKey: String,
     submittedDependenciesPlugin: Option[SubmittedDependencyInitContainerConfigPlugin])
     extends SparkInitContainerConfigMapBuilder {
 
   override def buildInitContainerConfigMap(): SingleKeyConfigMap = {
-    val initContainerConfigMapName = s"$kubernetesAppId-spark-init"
     val remoteJarsToDownload = KubernetesFileUtils.getOnlyRemoteFiles(sparkJars)
     val remoteFilesToDownload = KubernetesFileUtils.getOnlyRemoteFiles(sparkFiles)
     val remoteJarsConf = if (remoteJarsToDownload.nonEmpty) {
@@ -62,10 +61,10 @@ private[spark] class SparkInitContainerConfigMapBuilderImpl(
     val submittedDependenciesConfig = submittedDependenciesPlugin.map { plugin =>
       plugin.configurationsToFetchSubmittedDependencies()
     }.toSeq.flatten.toMap
-    SingleKeyConfigMap(INIT_CONTAINER_CONFIG_MAP_KEY,
+    SingleKeyConfigMap(configMapKey,
         PropertiesConfigMapFromScalaMapBuilder.buildConfigMap(
-            initContainerConfigMapName,
-            INIT_CONTAINER_CONFIG_MAP_KEY,
+            configMapName,
+            configMapKey,
             baseInitContainerConfig ++ submittedDependenciesConfig))
   }
 }

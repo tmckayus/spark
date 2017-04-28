@@ -16,8 +16,6 @@
  */
 package org.apache.spark.deploy.kubernetes.submit.v2
 
-import io.fabric8.kubernetes.api.model.{ConfigMap, Secret}
-
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
@@ -27,28 +25,23 @@ private[spark] trait ExecutorInitContainerConfiguration {
    * Provide the driver with configuration that allows it to configure executors to
    * fetch resources in the same way the driver does.
    */
-  def configureSparkConfForExecutorInitContainer(
-      initContainerSecret: Option[Secret],
-      initContainerConfigMapKey: String,
-      initContainerConfigMap: ConfigMap,
-      originalSparkConf: SparkConf): SparkConf
+  def configureSparkConfForExecutorInitContainer(originalSparkConf: SparkConf): SparkConf
 }
 
-private[spark] class ExecutorInitContainerConfigurationImpl
+private[spark] class ExecutorInitContainerConfigurationImpl(
+    initContainerSecretName: Option[String],
+    initContainerConfigMapName: String,
+    initContainerConfigMapKey: String)
     extends ExecutorInitContainerConfiguration {
-  def configureSparkConfForExecutorInitContainer(
-      initContainerSecret: Option[Secret],
-      initContainerConfigMapKey: String,
-      initContainerConfigMap: ConfigMap,
-      originalSparkConf: SparkConf): SparkConf = {
+  def configureSparkConfForExecutorInitContainer(originalSparkConf: SparkConf): SparkConf = {
     val configuredSparkConf = originalSparkConf.clone()
       .set(EXECUTOR_INIT_CONTAINER_CONFIG_MAP,
-        initContainerConfigMap.getMetadata.getName)
+        initContainerConfigMapName)
       .set(EXECUTOR_INIT_CONTAINER_CONFIG_MAP_KEY,
         initContainerConfigMapKey)
       .set(EXECUTOR_INIT_CONTAINER_SECRET_MOUNT_DIR, INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH)
-    initContainerSecret.map { secret =>
-      configuredSparkConf.set(EXECUTOR_INIT_CONTAINER_SECRET, secret.getMetadata.getName)
+    initContainerSecretName.map { secret =>
+      configuredSparkConf.set(EXECUTOR_INIT_CONTAINER_SECRET, secret)
     }.getOrElse(configuredSparkConf)
   }
 }

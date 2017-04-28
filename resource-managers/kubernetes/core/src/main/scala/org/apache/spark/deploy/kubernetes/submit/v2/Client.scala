@@ -40,33 +40,18 @@ import org.apache.spark.util.Utils
  * where different steps of submission should be factored out into separate classes.
  */
 private[spark] class Client(
+    appName: String,
+    kubernetesAppId: String,
     mainClass: String,
     sparkConf: SparkConf,
     appArgs: Array[String],
     mainAppResource: String,
-    // TODO consider a more concise hierachy for these components that groups related functions
-    // together. The modules themselves make sense but we could have higher-order compositions
-    // of them - for example, an InitContainerManager can contain all of the sub-modules relating
-    // to the init-container bootstrap.
+    sparkJars: Seq[String],
+    sparkFiles: Seq[String],
     kubernetesClientProvider: SubmissionKubernetesClientProvider,
-    submittedDepsUploaderProvider: SubmittedDependencyUploaderProvider,
-    submittedDepsSecretBuilder: SubmittedDependencySecretBuilder,
-    submittedDepsConfPluginProvider: SubmittedDependencyInitContainerConfigPluginProvider,
-    submittedDepsVolumesPluginProvider: SubmittedDependencyInitContainerVolumesPluginProvider,
-    initContainerConfigMapBuilderProvider: SparkInitContainerConfigMapBuilderProvider,
-    initContainerBootstrapProvider: SparkPodInitContainerBootstrapProvider,
-    containerLocalizedFilesResolverProvider: ContainerLocalizedFilesResolverProvider,
-    executorInitContainerConfiguration: ExecutorInitContainerConfiguration)
-    extends Logging {
+    initContainerComponentsProvider: DriverInitContainerComponents) extends Logging {
 
-  private val namespace = sparkConf.get(KUBERNETES_NAMESPACE)
-  private val master = resolveK8sMaster(sparkConf.get("spark.master"))
-  private val launchTime = System.currentTimeMillis
-  private val appName = sparkConf.getOption("spark.app.name")
-    .getOrElse("spark")
-  private val kubernetesAppId = s"$appName-$launchTime".toLowerCase.replaceAll("\\.", "-")
   private val driverDockerImage = sparkConf.get(DRIVER_DOCKER_IMAGE)
-  private val maybeStagingServerUri = sparkConf.get(RESOURCE_STAGING_SERVER_URI)
   private val driverMemoryMb = sparkConf.get(org.apache.spark.internal.config.DRIVER_MEMORY)
   private val memoryOverheadMb = sparkConf
     .get(KUBERNETES_DRIVER_MEMORY_OVERHEAD)
@@ -75,16 +60,7 @@ private[spark] class Client(
   private val driverContainerMemoryWithOverhead = driverMemoryMb + memoryOverheadMb
   private val customLabels = sparkConf.get(KUBERNETES_DRIVER_LABELS)
   private val customAnnotations = sparkConf.get(KUBERNETES_DRIVER_ANNOTATIONS)
-  private val sparkJars = sparkConf.getOption("spark.jars")
-    .map(_.split(","))
-    .getOrElse(Array.empty[String]) ++
-    Option(mainAppResource)
-      .filterNot(_ == SparkLauncher.NO_RESOURCE)
-      .toSeq
 
-  private val sparkFiles = sparkConf.getOption("spark.files")
-    .map(_.split(","))
-    .getOrElse(Array.empty[String])
   private val driverExtraClasspath = sparkConf.get(
     org.apache.spark.internal.config.DRIVER_CLASS_PATH)
   private val driverJavaOptions = sparkConf.get(
@@ -140,59 +116,35 @@ private[spark] class Client(
           .addToContainers(driverContainer)
           .endSpec()
 
-      val maybeSubmittedDependencyUploader = maybeStagingServerUri.map { stagingServerUri =>
-        submittedDepsUploaderProvider.getSubmittedDependencyUploader(
-          kubernetesAppId,
-          stagingServerUri,
-          allLabels,
-          namespace,
-          sparkJars,
-          sparkFiles)
-      }
+      val maybeSubmittedDependencyUploader = initContainerComponentsProvider
+        .provideInitContainerSubmittedDependencyUploader(allLabels)
       val maybeJarsResourceId = maybeSubmittedDependencyUploader.map(_.uploadJars())
       val maybeFilesResourceId = maybeSubmittedDependencyUploader.map(_.uploadFiles())
-      val maybeSubmittedDependenciesSecret = for {
-        jarsResourceId <- maybeJarsResourceId
-        filesResourceid <- maybeFilesResourceId
-      } yield {
-        submittedDepsSecretBuilder.buildInitContainerSecret(
-          kubernetesAppId, jarsResourceId.resourceSecret, filesResourceid.resourceSecret)
-      }
-      val maybeSubmittedDependenciesVolumesPlugin = maybeSubmittedDependenciesSecret.map {
-        submittedDepsVolumesPluginProvider.getInitContainerVolumesPlugin
-      }
-      val maybeSubmittedDependencyConfigPlugin = for {
-        stagingServerUri <- maybeStagingServerUri
-        jarsResourceId <- maybeJarsResourceId
-        filesResourceId <- maybeFilesResourceId
-      } yield {
-        submittedDepsConfPluginProvider.getSubmittedDependenciesInitContainerConfigPlugin(
-          stagingServerUri, jarsResourceId.resourceId, filesResourceId.resourceId)
-      }
-      val initContainerConfigMap = initContainerConfigMapBuilderProvider
-          .getInitConfigMapBuilder(
-                kubernetesAppId, sparkJars, sparkFiles, maybeSubmittedDependencyConfigPlugin)
-          .buildInitContainerConfigMap()
-      val initContainerBootstrap = initContainerBootstrapProvider.getInitContainerBootstrap(
-        initContainerConfigMap.configMap,
-        initContainerConfigMap.configMapKey,
-        maybeSubmittedDependenciesVolumesPlugin)
+      val maybeSecretBuilder = initContainerComponentsProvider
+          .provideSubmittedDependenciesSecretBuilder(
+              maybeJarsResourceId.map(_.resourceSecret),
+              maybeFilesResourceId.map(_.resourceSecret))
+      val maybeSubmittedDependenciesSecret = maybeSecretBuilder.map(_.buildInitContainerSecret())
+      val initContainerConfigMapBuilder = initContainerComponentsProvider
+          .provideInitContainerConfigMapBuilder(
+              maybeJarsResourceId.map(_.resourceId), maybeFilesResourceId.map(_.resourceId))
+      val initContainerConfigMap = initContainerConfigMapBuilder.buildInitContainerConfigMap()
+      val initContainerBootstrap = initContainerComponentsProvider.provideInitContainerBootstrap()
       val podWithInitContainer = initContainerBootstrap.bootstrapInitContainerAndVolumes(
-        driverContainer.getName, basePod)
+          driverContainer.getName, basePod)
 
       val nonDriverPodKubernetesResources = Seq(initContainerConfigMap.configMap) ++
         maybeSubmittedDependenciesSecret.toSeq
 
-      val containerLocalizedFilesResolver = containerLocalizedFilesResolverProvider
-        .getContainerLocalizedFilesResolver(sparkJars, sparkFiles)
+      val containerLocalizedFilesResolver = initContainerComponentsProvider
+          .provideContainerLocalizedFilesResolver()
       val resolvedSparkJars = containerLocalizedFilesResolver.resolveSubmittedSparkJars()
       val resolvedSparkFiles = containerLocalizedFilesResolver.resolveSubmittedSparkFiles()
+
+      val executorInitContainerConfiguration = initContainerComponentsProvider
+          .provideExecutorInitContainerConfiguration()
       val resolvedSparkConf = executorInitContainerConfiguration
-          .configureSparkConfForExecutorInitContainer(
-              maybeSubmittedDependenciesSecret,
-              initContainerConfigMap.configMapKey,
-              initContainerConfigMap.configMap,
-              sparkConf)
+          .configureSparkConfForExecutorInitContainer(sparkConf)
       if (resolvedSparkJars.nonEmpty) {
         resolvedSparkConf.set("spark.jars", resolvedSparkJars.mkString(","))
       }
@@ -276,5 +228,49 @@ private[spark] class Client(
         }
       }).toMap
     }).getOrElse(Map.empty[String, String])
+  }
+}
+
+private[spark] object Client {
+  def main(args: Array[String]): Unit = {
+    val sparkConf = new SparkConf(true)
+    val mainAppResource = args(0)
+    val mainClass = args(1)
+    val appArgs = args.drop(2)
+    run(sparkConf, mainAppResource, mainClass, appArgs)
+  }
+
+  def run(
+      sparkConf: SparkConf,
+      mainAppResource: String,
+      mainClass: String,
+      appArgs: Array[String]): Unit = {
+    val sparkJars = sparkConf.getOption("spark.jars")
+      .map(_.split(","))
+      .getOrElse(Array.empty[String]) ++
+      Option(mainAppResource)
+        .filterNot(_ == SparkLauncher.NO_RESOURCE)
+        .toSeq
+    val launchTime = System.currentTimeMillis
+    val sparkFiles = sparkConf.getOption("spark.files")
+      .map(_.split(","))
+      .getOrElse(Array.empty[String])
+    val appName = sparkConf.getOption("spark.app.name")
+      .getOrElse("spark")
+    val kubernetesAppId = s"$appName-$launchTime".toLowerCase.replaceAll("\\.", "-")
+    val initContainerComponentsProvider = new DriverInitContainerComponentsProviderImpl(
+      sparkConf, kubernetesAppId, sparkJars, sparkFiles)
+    val kubernetesClientProvider = new SubmissionKubernetesClientProviderImpl(sparkConf)
+    new Client(
+      appName,
+      kubernetesAppId,
+      mainClass,
+      sparkConf,
+      appArgs,
+      mainAppResource,
+      sparkJars,
+      sparkFiles,
+      kubernetesClientProvider,
+      initContainerComponentsProvider).run()
   }
 }

@@ -21,8 +21,7 @@ import com.google.common.io.{BaseEncoding, Files}
 import io.fabric8.kubernetes.api.model.{Secret, SecretBuilder}
 import scala.collection.JavaConverters._
 
-import org.apache.spark.{SecurityManager, SparkConf}
-import org.apache.spark.deploy.kubernetes.config._
+import org.apache.spark.SSLOptions
 import org.apache.spark.deploy.kubernetes.constants._
 
 private[spark] trait SubmittedDependencySecretBuilder {
@@ -30,32 +29,33 @@ private[spark] trait SubmittedDependencySecretBuilder {
    * Construct a Kubernetes secret bundle that init-containers can use to retrieve an
    * application's dependencies.
    */
-  def buildInitContainerSecret(
-      kubernetesAppId: String, jarsSecret: String, filesSecret: String): Secret
+  def buildInitContainerSecret(): Secret
 }
 
-private[spark] class SubmittedDependencySecretBuilderImpl(sparkConf: SparkConf)
+private[spark] class SubmittedDependencySecretBuilderImpl(
+    secretName: String,
+    jarsResourceSecret: String,
+    filesResourceSecret: String,
+    resourceStagingServerSslOptions: SSLOptions)
     extends SubmittedDependencySecretBuilder {
 
-  override def buildInitContainerSecret(
-      kubernetesAppId: String, jarsSecret: String, filesSecret: String): Secret = {
-    val stagingServiceSslOptions = new SecurityManager(sparkConf)
-        .getSSLOptions(RESOURCE_STAGING_SERVER_SSL_NAMESPACE)
-    val trustStoreBase64 = stagingServiceSslOptions.trustStore.map { trustStoreFile =>
+  override def buildInitContainerSecret(): Secret = {
+    val trustStoreBase64 = resourceStagingServerSslOptions.trustStore.map { trustStoreFile =>
       require(trustStoreFile.isFile, "Dependency server trustStore provided at" +
         trustStoreFile.getAbsolutePath + " does not exist or is not a file.")
       (INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY,
         BaseEncoding.base64().encode(Files.toByteArray(trustStoreFile)))
     }.toMap
-    val jarsSecretBase64 = BaseEncoding.base64().encode(jarsSecret.getBytes(Charsets.UTF_8))
-    val filesSecretBase64 = BaseEncoding.base64().encode(filesSecret.getBytes(Charsets.UTF_8))
+    val jarsSecretBase64 = BaseEncoding.base64().encode(jarsResourceSecret.getBytes(Charsets.UTF_8))
+    val filesSecretBase64 = BaseEncoding.base64().encode(
+      filesResourceSecret.getBytes(Charsets.UTF_8))
     val secretData = Map(
       INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY -> jarsSecretBase64,
       INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY -> filesSecretBase64) ++
       trustStoreBase64
     val kubernetesSecret = new SecretBuilder()
       .withNewMetadata()
-      .withName(s"$kubernetesAppId-spark-init")
+      .withName(secretName)
       .endMetadata()
       .addToData(secretData.asJava)
       .build()

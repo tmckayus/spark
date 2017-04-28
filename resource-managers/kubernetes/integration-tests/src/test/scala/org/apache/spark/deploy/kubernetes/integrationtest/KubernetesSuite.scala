@@ -43,7 +43,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite {
 
   override def nestedSuites: scala.collection.immutable.IndexedSeq[Suite] = {
     Vector(
-//      new KubernetesV1Suite,
+      new KubernetesV1Suite,
       new KubernetesV2Suite)
   }
 }

@@ -27,10 +27,10 @@ private[spark] trait ContainerLocalizedFilesResolver {
 }
 
 private[spark] class ContainerLocalizedFilesResolverImpl(
-    jarsDownloadPath: String,
-    filesDownloadPath: String,
     sparkJars: Seq[String],
-    sparkFiles: Seq[String]) extends ContainerLocalizedFilesResolver {
+    sparkFiles: Seq[String],
+    jarsDownloadPath: String,
+    filesDownloadPath: String) extends ContainerLocalizedFilesResolver {
 
   override def resolveSubmittedAndRemoteSparkJars(): Seq[String] = {
     sparkJars.map { jar =>
