@@ -17,7 +17,6 @@
 package org.apache.spark.deploy.kubernetes.submit.v2
 
 import java.io.File
-import java.net.URI
 
 import org.apache.spark.util.Utils
 
@@ -28,10 +27,10 @@ private[spark] trait ContainerLocalizedFilesResolver {
 }
 
 private[spark] class ContainerLocalizedFilesResolverImpl(
-  jarsDownloadPath: String,
-  filesDownloadPath: String,
-  sparkJars: Seq[String],
-  sparkFiles: Seq[String]) extends ContainerLocalizedFilesResolver {
+    jarsDownloadPath: String,
+    filesDownloadPath: String,
+    sparkJars: Seq[String],
+    sparkFiles: Seq[String]) extends ContainerLocalizedFilesResolver {
 
   override def resolveSubmittedAndRemoteSparkJars(): Seq[String] = {
     sparkJars.map { jar =>
@@ -40,7 +39,8 @@ private[spark] class ContainerLocalizedFilesResolverImpl(
         case "local" =>
           jarUri.getPath
         case _ =>
-          resolveJar(jarUri)
+          val jarFileName = new File(jarUri.getPath).getName
+          s"$jarsDownloadPath/$jarFileName"
       }
     }
   }
@@ -64,10 +64,5 @@ private[spark] class ContainerLocalizedFilesResolverImpl(
           file
       }
     }
-  }
-
-  private def resolveJar(jarUri: URI): String = {
-    val jarFileName = new File(jarUri.getPath).getName
-    s"$jarsDownloadPath/$jarFileName"
   }
 }
