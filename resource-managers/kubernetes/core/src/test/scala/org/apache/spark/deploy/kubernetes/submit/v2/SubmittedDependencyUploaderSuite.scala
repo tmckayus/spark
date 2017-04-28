@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.spark.deploy.kubernetes.submit.v2
 
 import java.io.{ByteArrayOutputStream, File}
@@ -117,14 +116,19 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
     val localJarsTarStream = new ByteArrayOutputStream()
     CompressionUtils.writeTarGzipToStream(localJarsTarStream, expectedFiles)
     val requestResourceBytes = requestBodyBytes(capturingArgumentsAnswer.podResourcesArg)
-    assert(requestResourceBytes.sameElements(localJarsTarStream.toByteArray))
+    val jarBytes = localJarsTarStream.toByteArray
+    assert(requestResourceBytes.sameElements(jarBytes))
   }
 
   private def requestBodyBytes(requestBody: RequestBody): Array[Byte] = {
     Utils.tryWithResource(new ByteArrayOutputStream()) { outputStream =>
       Utils.tryWithResource(Okio.sink(outputStream)) { sink =>
         Utils.tryWithResource(Okio.buffer(sink)) { bufferedSink =>
-          requestBody.writeTo(bufferedSink)
+          try {
+            requestBody.writeTo(bufferedSink)
+          } finally {
+            bufferedSink.flush()
+          }
         }
       }
       outputStream.toByteArray
