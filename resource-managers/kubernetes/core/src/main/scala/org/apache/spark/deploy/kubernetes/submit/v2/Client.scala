@@ -40,23 +40,23 @@ import org.apache.spark.util.Utils
  * where different steps of submission should be factored out into separate classes.
  */
 private[spark] class Client(
-      mainClass: String,
-      sparkConf: SparkConf,
-      appArgs: Array[String],
-      mainAppResource: String,
-      // TODO consider a more concise hierachy for these components that groups related functions
-      // together. The modules themselves make sense but we could have higher-order compositions
-      // of them - for example, an InitContainerManager can contain all of the sub-modules relating
-      // to the init-container bootstrap.
-      kubernetesClientProvider: SubmissionKubernetesClientProvider,
-      submittedDepsUploaderProvider: SubmittedDependencyUploaderProvider,
-      submittedDepsSecretBuilder: SubmittedDependencySecretBuilder,
-      submittedDepsConfPluginProvider: SubmittedDependencyInitContainerConfigPluginProvider,
-      submittedDepsVolumesPluginProvider: SubmittedDependencyInitContainerVolumesPluginProvider,
-      initContainerConfigMapBuilderProvider: SparkInitContainerConfigMapBuilderProvider,
-      initContainerBootstrapProvider: SparkPodInitContainerBootstrapProvider,
-      containerLocalizedFilesResolverProvider: ContainerLocalizedFilesResolverProvider,
-      executorInitContainerConfiguration: ExecutorInitContainerConfiguration)
+    mainClass: String,
+    sparkConf: SparkConf,
+    appArgs: Array[String],
+    mainAppResource: String,
+    // TODO consider a more concise hierachy for these components that groups related functions
+    // together. The modules themselves make sense but we could have higher-order compositions
+    // of them - for example, an InitContainerManager can contain all of the sub-modules relating
+    // to the init-container bootstrap.
+    kubernetesClientProvider: SubmissionKubernetesClientProvider,
+    submittedDepsUploaderProvider: SubmittedDependencyUploaderProvider,
+    submittedDepsSecretBuilder: SubmittedDependencySecretBuilder,
+    submittedDepsConfPluginProvider: SubmittedDependencyInitContainerConfigPluginProvider,
+    submittedDepsVolumesPluginProvider: SubmittedDependencyInitContainerVolumesPluginProvider,
+    initContainerConfigMapBuilderProvider: SparkInitContainerConfigMapBuilderProvider,
+    initContainerBootstrapProvider: SparkPodInitContainerBootstrapProvider,
+    containerLocalizedFilesResolverProvider: ContainerLocalizedFilesResolverProvider,
+    executorInitContainerConfiguration: ExecutorInitContainerConfiguration)
     extends Logging {
 
   private val namespace = sparkConf.get(KUBERNETES_NAMESPACE)
