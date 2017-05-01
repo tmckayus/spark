@@ -49,7 +49,7 @@ private[spark] class Client(
     sparkJars: Seq[String],
     sparkFiles: Seq[String],
     kubernetesClientProvider: SubmissionKubernetesClientProvider,
-    initContainerComponentsProvider: DriverInitContainerComponents) extends Logging {
+    initContainerComponentsProvider: DriverInitContainerComponentsProvider) extends Logging {
 
   private val driverDockerImage = sparkConf.get(DRIVER_DOCKER_IMAGE)
   private val driverMemoryMb = sparkConf.get(org.apache.spark.internal.config.DRIVER_MEMORY)
