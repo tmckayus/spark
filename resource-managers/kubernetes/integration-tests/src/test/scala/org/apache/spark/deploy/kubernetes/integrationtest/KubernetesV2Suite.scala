@@ -21,22 +21,14 @@ import java.util.UUID
 import org.scalatest.{BeforeAndAfter, DoNotDiscover}
 import org.scalatest.concurrent.Eventually
 
-import org.apache.spark._
+import org.apache.spark.{SparkConf, SparkFunSuite, SSLOptions}
 import org.apache.spark.deploy.kubernetes.SSLUtils
 import org.apache.spark.deploy.kubernetes.config._
-<<<<<<< HEAD
-import org.apache.spark.deploy.kubernetes.integrationtest.minikube.Minikube
-import org.apache.spark.deploy.kubernetes.submit.v2._
-import org.apache.spark.launcher.SparkLauncher
-||||||| merged common ancestors
-import org.apache.spark.deploy.kubernetes.integrationtest.minikube.Minikube
-import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
-=======
 import org.apache.spark.deploy.kubernetes.integrationtest.backend.IntegrationTestBackend
 import org.apache.spark.deploy.kubernetes.integrationtest.backend.minikube.Minikube
 import org.apache.spark.deploy.kubernetes.integrationtest.constants.MINIKUBE_TEST_BACKEND
-import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
+import org.apache.spark.deploy.kubernetes.submit.v2.Client
+import org.apache.spark.launcher.SparkLauncher
 
 @DoNotDiscover
 private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)

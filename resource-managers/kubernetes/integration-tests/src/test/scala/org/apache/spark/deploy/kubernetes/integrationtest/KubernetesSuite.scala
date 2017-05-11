@@ -39,19 +39,9 @@ private[spark] class KubernetesSuite extends SparkFunSuite {
   }
 
   override def nestedSuites: scala.collection.immutable.IndexedSeq[Suite] = {
-<<<<<<< HEAD
-    Vector(
-      new KubernetesV1Suite,
-      new KubernetesV2Suite)
-||||||| merged common ancestors
-      Vector(
-        new KubernetesV1Suite,
-        new KubernetesV2Suite)
-=======
       Vector(
         new KubernetesV1Suite(testBackend),
         new KubernetesV2Suite(testBackend))
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
   }
 }
 

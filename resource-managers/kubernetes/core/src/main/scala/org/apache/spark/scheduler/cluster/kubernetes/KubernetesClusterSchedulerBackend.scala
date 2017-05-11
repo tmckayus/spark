@@ -16,31 +16,15 @@
  */
 package org.apache.spark.scheduler.cluster.kubernetes
 
-<<<<<<< HEAD
-import java.io.File
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
-||||||| merged common ancestors
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
-=======
 import java.io.Closeable
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
 
-<<<<<<< HEAD
 import io.fabric8.kubernetes.api.model.{ContainerPortBuilder, EnvVarBuilder, EnvVarSourceBuilder, Pod, PodBuilder, QuantityBuilder}
-||||||| merged common ancestors
-import io.fabric8.kubernetes.api.model.{ContainerPortBuilder, EnvVarBuilder,
-    EnvVarSourceBuilder, Pod, QuantityBuilder}
-=======
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
+import io.fabric8.kubernetes.client.{KubernetesClientException, Watcher}
+import io.fabric8.kubernetes.client.Watcher.Action
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-
-import io.fabric8.kubernetes.api.model.{ContainerPortBuilder, EnvVarBuilder,
-    EnvVarSourceBuilder, Pod, QuantityBuilder}
-import io.fabric8.kubernetes.client.{KubernetesClientException, Watcher}
-import io.fabric8.kubernetes.client.Watcher.Action
 
 import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.deploy.kubernetes.SparkPodInitContainerBootstrap
@@ -58,21 +42,12 @@ private[spark] class KubernetesClusterSchedulerBackend(
   extends CoarseGrainedSchedulerBackend(scheduler, sc.env.rpcEnv) {
 
   import KubernetesClusterSchedulerBackend._
-<<<<<<< HEAD
-  private val EXECUTOR_MODIFICATION_LOCK = new Object
-  private val runningExecutorPods = new scala.collection.mutable.HashMap[String, Pod]
-||||||| merged common ancestors
-
-  private val EXECUTOR_MODIFICATION_LOCK = new Object
-  private val runningExecutorPods = new scala.collection.mutable.HashMap[String, Pod]
-=======
 
   private val RUNNING_EXECUTOR_PODS_LOCK = new Object
   private val runningExecutorPods = new mutable.HashMap[String, Pod] // Indexed by executor IDs.
 
   private val EXECUTOR_PODS_BY_IPS_LOCK = new Object
   private val executorPodsByIPs = new mutable.HashMap[String, Pod] // Indexed by executor IP addrs.
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
 
   private val executorExtraClasspath = conf.get(
     org.apache.spark.internal.config.EXECUTOR_CLASS_PATH)
