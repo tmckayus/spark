@@ -16,7 +16,7 @@
  */
 package org.apache.spark.deploy.kubernetes.submit.v2
 
-import java.io.{ByteArrayOutputStream, File}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
 import java.util.UUID
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -113,11 +113,23 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
     val requestNamespaceBytes = requestBodyBytes(capturingArgumentsAnswer.podNamespaceArg)
     val requestNamespaceString = new String(requestNamespaceBytes, Charsets.UTF_8)
     assert(requestNamespaceString === NAMESPACE)
-    val localJarsTarStream = new ByteArrayOutputStream()
-    CompressionUtils.writeTarGzipToStream(localJarsTarStream, expectedFiles)
-    val requestResourceBytes = requestBodyBytes(capturingArgumentsAnswer.podResourcesArg)
-    val jarBytes = localJarsTarStream.toByteArray
-    assert(requestResourceBytes.sameElements(jarBytes))
+
+    val unpackedFilesDir = Utils.createTempDir(namePrefix = "test-unpacked-files")
+    val compressedBytesInput = new ByteArrayInputStream(
+      requestBodyBytes(capturingArgumentsAnswer.podResourcesArg))
+    CompressionUtils.unpackTarStreamToDirectory(compressedBytesInput, unpackedFilesDir)
+    val writtenFiles = unpackedFilesDir.listFiles
+    assert(writtenFiles.size === expectedFiles.size)
+
+    expectedFiles.map(new File(_)).foreach { expectedFile =>
+      val maybeWrittenFile = writtenFiles.find(_.getName == expectedFile.getName)
+      assert(maybeWrittenFile.isDefined)
+      maybeWrittenFile.foreach { writtenFile =>
+        val writtenFileBytes = Files.toByteArray(writtenFile)
+        val expectedFileBytes = Files.toByteArray(expectedFile)
+        assert(expectedFileBytes.toSeq === writtenFileBytes.toSeq)
+      }
+    }
   }
 
   private def requestBodyBytes(requestBody: RequestBody): Array[Byte] = {
