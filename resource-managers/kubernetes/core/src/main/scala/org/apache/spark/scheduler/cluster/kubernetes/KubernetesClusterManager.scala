@@ -28,7 +28,7 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
   override def canCreate(masterURL: String): Boolean = masterURL.startsWith("k8s")
 
   override def createTaskScheduler(sc: SparkContext, masterURL: String): TaskScheduler = {
-    val scheduler = new TaskSchedulerImpl(sc)
+    val scheduler = new KubernetesTaskSchedulerImpl(sc)
     sc.taskScheduler = scheduler
     scheduler
   }
@@ -83,6 +83,5 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
   }
-
 }
 

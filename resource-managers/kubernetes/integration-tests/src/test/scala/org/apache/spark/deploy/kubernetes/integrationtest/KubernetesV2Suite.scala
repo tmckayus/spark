@@ -21,15 +21,26 @@ import java.util.UUID
 import org.scalatest.{BeforeAndAfter, DoNotDiscover}
 import org.scalatest.concurrent.Eventually
 
-import org.apache.spark.{SparkConf, SparkFunSuite, SSLOptions}
+import org.apache.spark._
 import org.apache.spark.deploy.kubernetes.SSLUtils
 import org.apache.spark.deploy.kubernetes.config._
+<<<<<<< HEAD
 import org.apache.spark.deploy.kubernetes.integrationtest.minikube.Minikube
 import org.apache.spark.deploy.kubernetes.submit.v2._
 import org.apache.spark.launcher.SparkLauncher
+||||||| merged common ancestors
+import org.apache.spark.deploy.kubernetes.integrationtest.minikube.Minikube
+import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
+=======
+import org.apache.spark.deploy.kubernetes.integrationtest.backend.IntegrationTestBackend
+import org.apache.spark.deploy.kubernetes.integrationtest.backend.minikube.Minikube
+import org.apache.spark.deploy.kubernetes.integrationtest.constants.MINIKUBE_TEST_BACKEND
+import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
+>>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
 
 @DoNotDiscover
-private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter {
+private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
+  extends SparkFunSuite with BeforeAndAfter {
 
   private val APP_LOCATOR_LABEL = UUID.randomUUID().toString.replaceAll("-", "")
   private var kubernetesTestComponents: KubernetesTestComponents = _
@@ -38,7 +49,7 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
   private var staticAssetServerLauncher: StaticAssetServerLauncher = _
 
   override def beforeAll(): Unit = {
-    kubernetesTestComponents = new KubernetesTestComponents
+    kubernetesTestComponents = new KubernetesTestComponents(testBackend.getKubernetesClient)
     resourceStagingServerLauncher = new ResourceStagingServerLauncher(
       kubernetesTestComponents.kubernetesClient.inNamespace(kubernetesTestComponents.namespace))
     staticAssetServerLauncher = new StaticAssetServerLauncher(
@@ -58,11 +69,15 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
   }
 
   test("Use submission v2.") {
+    assume(testBackend.name == MINIKUBE_TEST_BACKEND)
+
     launchStagingServer(SSLOptions())
     runSparkAppAndVerifyCompletion(KubernetesSuite.SUBMITTER_LOCAL_MAIN_APP_RESOURCE)
   }
 
   test("Enable SSL on the submission server") {
+    assume(testBackend.name == MINIKUBE_TEST_BACKEND)
+
     val (keyStore, trustStore) = SSLUtils.generateKeyStoreTrustStorePair(
       ipAddress = Minikube.getMinikubeIp,
       keyStorePassword = "keyStore",
@@ -85,6 +100,8 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
   }
 
   test("Use container-local resources without the resource staging server") {
+    assume(testBackend.name == MINIKUBE_TEST_BACKEND)
+
     sparkConf.setJars(Seq(
       KubernetesSuite.CONTAINER_LOCAL_HELPER_JAR_PATH))
     runSparkAppAndVerifyCompletion(KubernetesSuite.CONTAINER_LOCAL_MAIN_APP_RESOURCE)
@@ -110,6 +127,8 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
   }
 
   private def launchStagingServer(resourceStagingServerSslOptions: SSLOptions): Unit = {
+    assume(testBackend.name == MINIKUBE_TEST_BACKEND)
+
     val resourceStagingServerPort = resourceStagingServerLauncher.launchStagingServer(
       resourceStagingServerSslOptions)
     val resourceStagingServerUriScheme = if (resourceStagingServerSslOptions.enabled) {
@@ -118,7 +137,8 @@ private[spark] class KubernetesV2Suite extends SparkFunSuite with BeforeAndAfter
       "http"
     }
     sparkConf.set(RESOURCE_STAGING_SERVER_URI,
-      s"$resourceStagingServerUriScheme://${Minikube.getMinikubeIp}:$resourceStagingServerPort")
+      s"$resourceStagingServerUriScheme://" +
+        s"${Minikube.getMinikubeIp}:$resourceStagingServerPort")
   }
 
   private def runSparkAppAndVerifyCompletion(appResource: String): Unit = {

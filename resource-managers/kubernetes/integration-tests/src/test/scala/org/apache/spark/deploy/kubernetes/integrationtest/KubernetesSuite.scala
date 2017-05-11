@@ -25,26 +25,33 @@ import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Minutes, Seconds, Span}
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.deploy.kubernetes.integrationtest.docker.SparkDockerImageBuilder
-import org.apache.spark.deploy.kubernetes.integrationtest.minikube.Minikube
+import org.apache.spark.deploy.kubernetes.integrationtest.backend.{IntegrationTestBackend, IntegrationTestBackendFactory}
 
 private[spark] class KubernetesSuite extends SparkFunSuite {
+  private val testBackend: IntegrationTestBackend = IntegrationTestBackendFactory.getTestBackend()
 
   override def beforeAll(): Unit = {
-    Minikube.startMinikube()
-    new SparkDockerImageBuilder(Minikube.getDockerEnv).buildSparkDockerImages()
+    testBackend.initialize()
   }
 
   override def afterAll(): Unit = {
-    if (!System.getProperty("spark.docker.test.persistMinikube", "false").toBoolean) {
-      Minikube.deleteMinikube()
-    }
+    testBackend.cleanUp()
   }
 
   override def nestedSuites: scala.collection.immutable.IndexedSeq[Suite] = {
+<<<<<<< HEAD
     Vector(
       new KubernetesV1Suite,
       new KubernetesV2Suite)
+||||||| merged common ancestors
+      Vector(
+        new KubernetesV1Suite,
+        new KubernetesV2Suite)
+=======
+      Vector(
+        new KubernetesV1Suite(testBackend),
+        new KubernetesV2Suite(testBackend))
+>>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
   }
 }
 
