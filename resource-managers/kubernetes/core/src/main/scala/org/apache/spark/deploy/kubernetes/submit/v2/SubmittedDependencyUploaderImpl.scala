@@ -36,13 +36,13 @@ private[spark] trait SubmittedDependencyUploader {
    * Upload submitter-local jars to the resource staging server.
    * @return The resource ID and secret to use to retrieve these jars.
    */
-  def uploadJars(): StagedResourceIdAndSecret
+  def uploadJars(): SubmittedResourceIdAndSecret
 
   /**
    * Upload submitter-local files to the resource staging server.
    * @return The resource ID and secret to use to retrieve these files.
    */
-  def uploadFiles(): StagedResourceIdAndSecret
+  def uploadFiles(): SubmittedResourceIdAndSecret
 }
 
 /**
@@ -68,10 +68,11 @@ private[spark] class SubmittedDependencyUploaderImpl(
   private def localJars: Iterable[File] = localUriStringsToFiles(sparkJars)
   private def localFiles: Iterable[File] = localUriStringsToFiles(sparkFiles)
 
-  override def uploadJars(): StagedResourceIdAndSecret = doUpload(localJars, "uploaded-jars")
-  override def uploadFiles(): StagedResourceIdAndSecret = doUpload(localFiles, "uploaded-files")
+  override def uploadJars(): SubmittedResourceIdAndSecret = doUpload(localJars, "uploaded-jars")
+  override def uploadFiles(): SubmittedResourceIdAndSecret = doUpload(localFiles, "uploaded-files")
 
-  private def doUpload(files: Iterable[File], fileNamePrefix: String): StagedResourceIdAndSecret = {
+  private def doUpload(files: Iterable[File], fileNamePrefix: String)
+      : SubmittedResourceIdAndSecret = {
     val filesDir = Utils.createTempDir(namePrefix = fileNamePrefix)
     val filesTgz = new File(filesDir, s"$fileNamePrefix.tgz")
     Utils.tryWithResource(new FileOutputStream(filesTgz)) { filesOutputStream =>

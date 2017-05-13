@@ -16,17 +16,17 @@
  */
 package org.apache.spark.deploy.kubernetes.submit.v2
 
-case class StagedResourceIdAndSecret(resourceId: String, resourceSecret: String)
+case class SubmittedResourceIdAndSecret(resourceId: String, resourceSecret: String)
 
-case class StagedResources(
-    jarsResourceIdAndSecret: StagedResourceIdAndSecret,
-    filesResourceIdAndSecret: StagedResourceIdAndSecret) {
-  def ids(): StagedResourceIds = StagedResourceIds(
+case class SubmittedResources(
+    jarsResourceIdAndSecret: SubmittedResourceIdAndSecret,
+    filesResourceIdAndSecret: SubmittedResourceIdAndSecret) {
+  def ids(): SubmittedResourceIds = SubmittedResourceIds(
       jarsResourceIdAndSecret.resourceId, filesResourceIdAndSecret.resourceId)
-  def secrets(): StagedResourceSecrets = StagedResourceSecrets(
+  def secrets(): SubmittedResourceSecrets = SubmittedResourceSecrets(
       jarsResourceIdAndSecret.resourceSecret, filesResourceIdAndSecret.resourceSecret)
 }
 
-case class StagedResourceIds(jarsResourceId: String, filesResourceId: String)
+case class SubmittedResourceIds(jarsResourceId: String, filesResourceId: String)
 
-case class StagedResourceSecrets(jarsResourceSecret: String, filesResourceSecret: String)
+case class SubmittedResourceSecrets(jarsResourceSecret: String, filesResourceSecret: String)

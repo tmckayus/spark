@@ -119,7 +119,7 @@ private[spark] class Client(
       val maybeSubmittedDependencyUploader = initContainerComponentsProvider
         .provideInitContainerSubmittedDependencyUploader(allLabels)
       val maybeSubmittedResourceIdentifiers = maybeSubmittedDependencyUploader.map { uploader =>
-        StagedResources(uploader.uploadJars(), uploader.uploadFiles())
+        SubmittedResources(uploader.uploadJars(), uploader.uploadFiles())
       }
       val maybeSecretBuilder = initContainerComponentsProvider
           .provideSubmittedDependenciesSecretBuilder(

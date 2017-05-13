@@ -20,7 +20,7 @@ import okhttp3.{RequestBody, ResponseBody}
 import retrofit2.Call
 import retrofit2.http.{Multipart, Path, Streaming}
 
-import org.apache.spark.deploy.kubernetes.submit.v2.StagedResourceIdAndSecret
+import org.apache.spark.deploy.kubernetes.submit.v2.SubmittedResourceIdAndSecret
 
 /**
  * Retrofit-compatible variant of {@link ResourceStagingService}. For documentation on
@@ -35,7 +35,7 @@ private[spark] trait ResourceStagingServiceRetrofit {
       @retrofit2.http.Part("podNamespace") podNamespace: RequestBody,
       @retrofit2.http.Part("resources") resources: RequestBody,
       @retrofit2.http.Part("kubernetesCredentials")
-          kubernetesCredentials: RequestBody): Call[StagedResourceIdAndSecret]
+          kubernetesCredentials: RequestBody): Call[SubmittedResourceIdAndSecret]
 
   @Streaming
   @retrofit2.http.GET("/api/v0/resources/{resourceId}")

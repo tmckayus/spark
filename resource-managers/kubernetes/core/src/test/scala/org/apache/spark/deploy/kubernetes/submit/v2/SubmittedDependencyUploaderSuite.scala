@@ -86,7 +86,7 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
 
   test("Uploading jars should contact the staging server with the appropriate parameters") {
     val capturingArgumentsAnswer = new UploadDependenciesArgumentsCapturingAnswer(
-      StagedResourceIdAndSecret("resourceId", "resourceSecret"))
+      SubmittedResourceIdAndSecret("resourceId", "resourceSecret"))
     Mockito.when(retrofitClient.uploadResources(any(), any(), any(), any()))
       .thenAnswer(capturingArgumentsAnswer)
     dependencyUploaderUnderTest.uploadJars()
@@ -95,7 +95,7 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
 
   test("Uploading files should contact the staging server with the appropriate parameters") {
     val capturingArgumentsAnswer = new UploadDependenciesArgumentsCapturingAnswer(
-      StagedResourceIdAndSecret("resourceId", "resourceSecret"))
+      SubmittedResourceIdAndSecret("resourceId", "resourceSecret"))
     Mockito.when(retrofitClient.uploadResources(any(), any(), any(), any()))
       .thenAnswer(capturingArgumentsAnswer)
     dependencyUploaderUnderTest.uploadFiles()
@@ -148,20 +148,20 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
   }
 }
 
-private class UploadDependenciesArgumentsCapturingAnswer(returnValue: StagedResourceIdAndSecret)
-    extends Answer[Call[StagedResourceIdAndSecret]] {
+private class UploadDependenciesArgumentsCapturingAnswer(returnValue: SubmittedResourceIdAndSecret)
+    extends Answer[Call[SubmittedResourceIdAndSecret]] {
 
   var podLabelsArg: RequestBody = _
   var podNamespaceArg: RequestBody = _
   var podResourcesArg: RequestBody = _
   var kubernetesCredentialsArg: RequestBody = _
 
-  override def answer(invocationOnMock: InvocationOnMock): Call[StagedResourceIdAndSecret] = {
+  override def answer(invocationOnMock: InvocationOnMock): Call[SubmittedResourceIdAndSecret] = {
     podLabelsArg = invocationOnMock.getArgumentAt(0, classOf[RequestBody])
     podNamespaceArg = invocationOnMock.getArgumentAt(1, classOf[RequestBody])
     podResourcesArg = invocationOnMock.getArgumentAt(2, classOf[RequestBody])
     kubernetesCredentialsArg = invocationOnMock.getArgumentAt(3, classOf[RequestBody])
-    val responseCall = mock[Call[StagedResourceIdAndSecret]]
+    val responseCall = mock[Call[SubmittedResourceIdAndSecret]]
     Mockito.when(responseCall.execute()).thenReturn(Response.success(returnValue))
     responseCall
   }

@@ -30,14 +30,14 @@ import org.apache.spark.deploy.rest.kubernetes.v2.RetrofitClientFactoryImpl
 private[spark] trait DriverInitContainerComponentsProvider {
 
   def provideInitContainerConfigMapBuilder(
-      maybeStagedResourceIds: Option[StagedResourceIds])
+      maybeSubmittedResourceIds: Option[SubmittedResourceIds])
       : SparkInitContainerConfigMapBuilder
   def provideContainerLocalizedFilesResolver(): ContainerLocalizedFilesResolver
   def provideExecutorInitContainerConfiguration(): ExecutorInitContainerConfiguration
   def provideInitContainerSubmittedDependencyUploader(
       driverPodLabels: Map[String, String]): Option[SubmittedDependencyUploader]
   def provideSubmittedDependenciesSecretBuilder(
-      maybeSubmittedResourceSecrets: Option[StagedResourceSecrets])
+      maybeSubmittedResourceSecrets: Option[SubmittedResourceSecrets])
       : Option[SubmittedDependencySecretBuilder]
   def provideInitContainerBootstrap(): SparkPodInitContainerBootstrap
 }
@@ -64,11 +64,12 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
   private val downloadTimeoutMinutes = sparkConf.get(INIT_CONTAINER_MOUNT_TIMEOUT)
 
   override def provideInitContainerConfigMapBuilder(
-      maybeStagedResourceIds: Option[StagedResourceIds]): SparkInitContainerConfigMapBuilder = {
+      maybeSubmittedResourceIds: Option[SubmittedResourceIds])
+      : SparkInitContainerConfigMapBuilder = {
     val submittedDependencyConfigPlugin = for {
       stagingServerUri <- maybeResourceStagingServerUri
-      jarsResourceId <- maybeStagedResourceIds.map(_.jarsResourceId)
-      filesResourceId <- maybeStagedResourceIds.map(_.filesResourceId)
+      jarsResourceId <- maybeSubmittedResourceIds.map(_.jarsResourceId)
+      filesResourceId <- maybeSubmittedResourceIds.map(_.filesResourceId)
     } yield {
       new SubmittedDependencyInitContainerConfigPluginImpl(
         stagingServerUri,
@@ -119,12 +120,12 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
   }
 
   override def provideSubmittedDependenciesSecretBuilder(
-      maybeStagedResourceSecrets: Option[StagedResourceSecrets])
+      maybeSubmittedResourceSecrets: Option[SubmittedResourceSecrets])
       : Option[SubmittedDependencySecretBuilder] = {
     for {
       secretName <- maybeSecretName
-      jarsResourceSecret <- maybeStagedResourceSecrets.map(_.jarsResourceSecret)
-      filesResourceSecret <- maybeStagedResourceSecrets.map(_.filesResourceSecret)
+      jarsResourceSecret <- maybeSubmittedResourceSecrets.map(_.jarsResourceSecret)
+      filesResourceSecret <- maybeSubmittedResourceSecrets.map(_.filesResourceSecret)
     } yield {
       new SubmittedDependencySecretBuilderImpl(
         secretName,
