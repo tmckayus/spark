@@ -19,7 +19,7 @@ package org.apache.spark.deploy.kubernetes
 import io.fabric8.kubernetes.api.model.{ContainerBuilder, EmptyDirVolumeSource, PodBuilder, VolumeMount, VolumeMountBuilder}
 
 import org.apache.spark.deploy.kubernetes.constants._
-import org.apache.spark.deploy.kubernetes.submit.v2.{ContainerNameEqualityPredicate, InitContainerUtil, SubmittedDependencyInitContainerVolumesPlugin}
+import org.apache.spark.deploy.kubernetes.submit.v2.{ContainerNameEqualityPredicate, InitContainerUtil}
 
 private[spark] trait SparkPodInitContainerBootstrap {
   /**

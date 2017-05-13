@@ -14,6 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.deploy.rest.kubernetes.v2
+package org.apache.spark.deploy.kubernetes.submit.v2
 
-case class StagedResourceIdentifier(resourceId: String, resourceSecret: String)
+case class StagedResourceIdAndSecret(resourceId: String, resourceSecret: String)
+
+case class StagedResources(
+    jarsResourceIdAndSecret: StagedResourceIdAndSecret,
+    filesResourceIdAndSecret: StagedResourceIdAndSecret) {
+  def ids(): StagedResourceIds = StagedResourceIds(
+      jarsResourceIdAndSecret.resourceId, filesResourceIdAndSecret.resourceId)
+  def secrets(): StagedResourceSecrets = StagedResourceSecrets(
+      jarsResourceIdAndSecret.resourceSecret, filesResourceIdAndSecret.resourceSecret)
+}
+
+case class StagedResourceIds(jarsResourceId: String, filesResourceId: String)
+
+case class StagedResourceSecrets(jarsResourceSecret: String, filesResourceSecret: String)

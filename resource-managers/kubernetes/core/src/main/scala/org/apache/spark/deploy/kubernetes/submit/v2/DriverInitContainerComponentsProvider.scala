@@ -17,7 +17,7 @@
 package org.apache.spark.deploy.kubernetes.submit.v2
 
 import org.apache.spark.{SecurityManager, SparkConf}
-import org.apache.spark.deploy.kubernetes.{SparkPodInitContainerBootstrap, SparkPodInitContainerBootstrapImpl}
+import org.apache.spark.deploy.kubernetes.{SparkPodInitContainerBootstrap, SparkPodInitContainerBootstrapImpl, SubmittedDependencyInitContainerVolumesPluginImpl}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.deploy.rest.kubernetes.v2.RetrofitClientFactoryImpl
@@ -30,15 +30,15 @@ import org.apache.spark.deploy.rest.kubernetes.v2.RetrofitClientFactoryImpl
 private[spark] trait DriverInitContainerComponentsProvider {
 
   def provideInitContainerConfigMapBuilder(
-      maybeJarsResourceId: Option[String], maybeFilesResourceId: Option[String])
+      maybeStagedResourceIds: Option[StagedResourceIds])
       : SparkInitContainerConfigMapBuilder
   def provideContainerLocalizedFilesResolver(): ContainerLocalizedFilesResolver
   def provideExecutorInitContainerConfiguration(): ExecutorInitContainerConfiguration
   def provideInitContainerSubmittedDependencyUploader(
       driverPodLabels: Map[String, String]): Option[SubmittedDependencyUploader]
   def provideSubmittedDependenciesSecretBuilder(
-      maybeJarsResourceSecret: Option[String],
-      maybeFilesResourceSecret: Option[String]): Option[SubmittedDependencySecretBuilder]
+      maybeSubmittedResourceSecrets: Option[StagedResourceSecrets])
+      : Option[SubmittedDependencySecretBuilder]
   def provideInitContainerBootstrap(): SparkPodInitContainerBootstrap
 }
 
@@ -64,17 +64,20 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
   private val downloadTimeoutMinutes = sparkConf.get(INIT_CONTAINER_MOUNT_TIMEOUT)
 
   override def provideInitContainerConfigMapBuilder(
-      maybeJarsResourceId: Option[String],
-      maybeFilesResourceId: Option[String]): SparkInitContainerConfigMapBuilder = {
+      maybeStagedResourceIds: Option[StagedResourceIds]): SparkInitContainerConfigMapBuilder = {
     val submittedDependencyConfigPlugin = for {
       stagingServerUri <- maybeResourceStagingServerUri
-      jarsResourceId <- maybeJarsResourceId
-      filesResourceId <- maybeFilesResourceId
+      jarsResourceId <- maybeStagedResourceIds.map(_.jarsResourceId)
+      filesResourceId <- maybeStagedResourceIds.map(_.filesResourceId)
     } yield {
       new SubmittedDependencyInitContainerConfigPluginImpl(
         stagingServerUri,
         jarsResourceId,
         filesResourceId,
+        INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY,
+        INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY,
+        INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY,
+        INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH,
         resourceStagingServerSslOptions)
     }
     new SparkInitContainerConfigMapBuilderImpl(
@@ -116,17 +119,20 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
   }
 
   override def provideSubmittedDependenciesSecretBuilder(
-      maybeJarsResourceSecret: Option[String],
-      maybeFilesResourceSecret: Option[String]): Option[SubmittedDependencySecretBuilder] = {
+      maybeStagedResourceSecrets: Option[StagedResourceSecrets])
+      : Option[SubmittedDependencySecretBuilder] = {
     for {
       secretName <- maybeSecretName
-      jarsResourceSecret <- maybeJarsResourceSecret
-      filesResourceSecret <- maybeFilesResourceSecret
+      jarsResourceSecret <- maybeStagedResourceSecrets.map(_.jarsResourceSecret)
+      filesResourceSecret <- maybeStagedResourceSecrets.map(_.filesResourceSecret)
     } yield {
       new SubmittedDependencySecretBuilderImpl(
         secretName,
         jarsResourceSecret,
         filesResourceSecret,
+        INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY,
+        INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY,
+        INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY,
         resourceStagingServerSslOptions)
     }
   }

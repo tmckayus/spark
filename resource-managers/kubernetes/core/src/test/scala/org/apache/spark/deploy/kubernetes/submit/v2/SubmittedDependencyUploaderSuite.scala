@@ -35,7 +35,7 @@ import retrofit2.{Call, Response}
 
 import org.apache.spark.{SparkFunSuite, SSLOptions}
 import org.apache.spark.deploy.kubernetes.CompressionUtils
-import org.apache.spark.deploy.rest.kubernetes.v2.{ResourceStagingServiceRetrofit, RetrofitClientFactory, StagedResourceIdentifier}
+import org.apache.spark.deploy.rest.kubernetes.v2.{ResourceStagingServiceRetrofit, RetrofitClientFactory}
 import org.apache.spark.util.Utils
 
 private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with BeforeAndAfter {
@@ -64,7 +64,7 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
   private var retrofitClientFactory: RetrofitClientFactory = _
   private var retrofitClient: ResourceStagingServiceRetrofit = _
 
-  private var dependencyManagerUnderTest: SubmittedDependencyUploader = _
+  private var dependencyUploaderUnderTest: SubmittedDependencyUploader = _
 
   before {
     retrofitClientFactory = mock[RetrofitClientFactory]
@@ -73,7 +73,7 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
       retrofitClientFactory.createRetrofitClient(
         STAGING_SERVER_URI, classOf[ResourceStagingServiceRetrofit], STAGING_SERVER_SSL_OPTIONS))
       .thenReturn(retrofitClient)
-    dependencyManagerUnderTest = new SubmittedDependencyUploaderImpl(
+    dependencyUploaderUnderTest = new SubmittedDependencyUploaderImpl(
       APP_ID,
       LABELS,
       NAMESPACE,
@@ -86,19 +86,19 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
 
   test("Uploading jars should contact the staging server with the appropriate parameters") {
     val capturingArgumentsAnswer = new UploadDependenciesArgumentsCapturingAnswer(
-      StagedResourceIdentifier("resourceId", "resourceSecret"))
+      StagedResourceIdAndSecret("resourceId", "resourceSecret"))
     Mockito.when(retrofitClient.uploadResources(any(), any(), any(), any()))
       .thenAnswer(capturingArgumentsAnswer)
-    dependencyManagerUnderTest.uploadJars()
+    dependencyUploaderUnderTest.uploadJars()
     testUploadSendsCorrectFiles(LOCAL_JARS, capturingArgumentsAnswer)
   }
 
   test("Uploading files should contact the staging server with the appropriate parameters") {
     val capturingArgumentsAnswer = new UploadDependenciesArgumentsCapturingAnswer(
-      StagedResourceIdentifier("resourceId", "resourceSecret"))
+      StagedResourceIdAndSecret("resourceId", "resourceSecret"))
     Mockito.when(retrofitClient.uploadResources(any(), any(), any(), any()))
       .thenAnswer(capturingArgumentsAnswer)
-    dependencyManagerUnderTest.uploadFiles()
+    dependencyUploaderUnderTest.uploadFiles()
     testUploadSendsCorrectFiles(LOCAL_FILES, capturingArgumentsAnswer)
   }
 
@@ -148,20 +148,20 @@ private[spark] class SubmittedDependencyUploaderSuite extends SparkFunSuite with
   }
 }
 
-private class UploadDependenciesArgumentsCapturingAnswer(returnValue: StagedResourceIdentifier)
-    extends Answer[Call[StagedResourceIdentifier]] {
+private class UploadDependenciesArgumentsCapturingAnswer(returnValue: StagedResourceIdAndSecret)
+    extends Answer[Call[StagedResourceIdAndSecret]] {
 
   var podLabelsArg: RequestBody = _
   var podNamespaceArg: RequestBody = _
   var podResourcesArg: RequestBody = _
   var kubernetesCredentialsArg: RequestBody = _
 
-  override def answer(invocationOnMock: InvocationOnMock): Call[StagedResourceIdentifier] = {
+  override def answer(invocationOnMock: InvocationOnMock): Call[StagedResourceIdAndSecret] = {
     podLabelsArg = invocationOnMock.getArgumentAt(0, classOf[RequestBody])
     podNamespaceArg = invocationOnMock.getArgumentAt(1, classOf[RequestBody])
     podResourcesArg = invocationOnMock.getArgumentAt(2, classOf[RequestBody])
     kubernetesCredentialsArg = invocationOnMock.getArgumentAt(3, classOf[RequestBody])
-    val responseCall = mock[Call[StagedResourceIdentifier]]
+    val responseCall = mock[Call[StagedResourceIdAndSecret]]
     Mockito.when(responseCall.execute()).thenReturn(Response.success(returnValue))
     responseCall
   }

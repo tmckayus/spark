@@ -37,6 +37,10 @@ private[spark] class SubmittedDependencyInitContainerConfigPluginImpl(
     resourceStagingServerUri: String,
     jarsResourceId: String,
     filesResourceId: String,
+    jarsSecretKey: String,
+    filesSecretKey: String,
+    trustStoreSecretKey: String,
+    secretsVolumeMountPath: String,
     resourceStagingServiceSslOptions: SSLOptions)
     extends SubmittedDependencyInitContainerConfigPlugin {
 
@@ -45,16 +49,15 @@ private[spark] class SubmittedDependencyInitContainerConfigPluginImpl(
       RESOURCE_STAGING_SERVER_URI.key -> resourceStagingServerUri,
       INIT_CONTAINER_DOWNLOAD_JARS_RESOURCE_IDENTIFIER.key -> jarsResourceId,
       INIT_CONTAINER_DOWNLOAD_JARS_SECRET_LOCATION.key ->
-        s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/$INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY",
+        s"$secretsVolumeMountPath/$jarsSecretKey",
       INIT_CONTAINER_DOWNLOAD_FILES_RESOURCE_IDENTIFIER.key -> filesResourceId,
       INIT_CONTAINER_DOWNLOAD_FILES_SECRET_LOCATION.key ->
-        s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/$INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY",
+        s"$secretsVolumeMountPath/$filesSecretKey",
       RESOURCE_STAGING_SERVER_SSL_ENABLED.key ->
         resourceStagingServiceSslOptions.enabled.toString) ++
       resourceStagingServiceSslOptions.trustStore.map { _ =>
         (RESOURCE_STAGING_SERVER_TRUSTSTORE_FILE.key,
-          s"$INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH/" +
-            s"$INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY")
+          s"$secretsVolumeMountPath/$trustStoreSecretKey")
       }.toMap ++
       resourceStagingServiceSslOptions.trustStorePassword.map { password =>
         (RESOURCE_STAGING_SERVER_TRUSTSTORE_PASSWORD.key, password)

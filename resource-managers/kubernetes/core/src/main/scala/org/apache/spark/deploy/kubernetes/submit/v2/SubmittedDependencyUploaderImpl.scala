@@ -28,7 +28,7 @@ import org.apache.spark.{SparkException, SSLOptions}
 import org.apache.spark.deploy.kubernetes.CompressionUtils
 import org.apache.spark.deploy.kubernetes.submit.KubernetesFileUtils
 import org.apache.spark.deploy.rest.kubernetes.v1.KubernetesCredentials
-import org.apache.spark.deploy.rest.kubernetes.v2.{ResourceStagingServiceRetrofit, RetrofitClientFactory, StagedResourceIdentifier}
+import org.apache.spark.deploy.rest.kubernetes.v2.{ResourceStagingServiceRetrofit, RetrofitClientFactory}
 import org.apache.spark.util.Utils
 
 private[spark] trait SubmittedDependencyUploader {
@@ -36,13 +36,13 @@ private[spark] trait SubmittedDependencyUploader {
    * Upload submitter-local jars to the resource staging server.
    * @return The resource ID and secret to use to retrieve these jars.
    */
-  def uploadJars(): StagedResourceIdentifier
+  def uploadJars(): StagedResourceIdAndSecret
 
   /**
    * Upload submitter-local files to the resource staging server.
    * @return The resource ID and secret to use to retrieve these files.
    */
-  def uploadFiles(): StagedResourceIdentifier
+  def uploadFiles(): StagedResourceIdAndSecret
 }
 
 /**
@@ -68,10 +68,10 @@ private[spark] class SubmittedDependencyUploaderImpl(
   private def localJars: Iterable[File] = localUriStringsToFiles(sparkJars)
   private def localFiles: Iterable[File] = localUriStringsToFiles(sparkFiles)
 
-  override def uploadJars(): StagedResourceIdentifier = doUpload(localJars, "uploaded-jars")
-  override def uploadFiles(): StagedResourceIdentifier = doUpload(localFiles, "uploaded-files")
+  override def uploadJars(): StagedResourceIdAndSecret = doUpload(localJars, "uploaded-jars")
+  override def uploadFiles(): StagedResourceIdAndSecret = doUpload(localFiles, "uploaded-files")
 
-  private def doUpload(files: Iterable[File], fileNamePrefix: String): StagedResourceIdentifier = {
+  private def doUpload(files: Iterable[File], fileNamePrefix: String): StagedResourceIdAndSecret = {
     val filesDir = Utils.createTempDir(namePrefix = fileNamePrefix)
     val filesTgz = new File(filesDir, s"$fileNamePrefix.tgz")
     Utils.tryWithResource(new FileOutputStream(filesTgz)) { filesOutputStream =>

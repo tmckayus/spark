@@ -118,16 +118,15 @@ private[spark] class Client(
 
       val maybeSubmittedDependencyUploader = initContainerComponentsProvider
         .provideInitContainerSubmittedDependencyUploader(allLabels)
-      val maybeJarsResourceId = maybeSubmittedDependencyUploader.map(_.uploadJars())
-      val maybeFilesResourceId = maybeSubmittedDependencyUploader.map(_.uploadFiles())
+      val maybeSubmittedResourceIdentifiers = maybeSubmittedDependencyUploader.map { uploader =>
+        StagedResources(uploader.uploadJars(), uploader.uploadFiles())
+      }
       val maybeSecretBuilder = initContainerComponentsProvider
           .provideSubmittedDependenciesSecretBuilder(
-              maybeJarsResourceId.map(_.resourceSecret),
-              maybeFilesResourceId.map(_.resourceSecret))
+              maybeSubmittedResourceIdentifiers.map(_.secrets()))
       val maybeSubmittedDependenciesSecret = maybeSecretBuilder.map(_.buildInitContainerSecret())
       val initContainerConfigMapBuilder = initContainerComponentsProvider
-          .provideInitContainerConfigMapBuilder(
-              maybeJarsResourceId.map(_.resourceId), maybeFilesResourceId.map(_.resourceId))
+          .provideInitContainerConfigMapBuilder(maybeSubmittedResourceIdentifiers.map(_.ids()))
       val initContainerConfigMap = initContainerConfigMapBuilder.buildInitContainerConfigMap()
       val initContainerBootstrap = initContainerComponentsProvider.provideInitContainerBootstrap()
       val podWithInitContainer = initContainerBootstrap.bootstrapInitContainerAndVolumes(

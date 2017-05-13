@@ -17,9 +17,8 @@
 package org.apache.spark.scheduler.cluster.kubernetes
 
 import org.apache.spark.SparkContext
-import org.apache.spark.deploy.kubernetes.SparkPodInitContainerBootstrapImpl
+import org.apache.spark.deploy.kubernetes.{SparkPodInitContainerBootstrapImpl, SubmittedDependencyInitContainerVolumesPluginImpl}
 import org.apache.spark.deploy.kubernetes.config._
-import org.apache.spark.deploy.kubernetes.submit.v2.SubmittedDependencyInitContainerVolumesPluginImpl
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 

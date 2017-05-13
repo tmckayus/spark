@@ -36,6 +36,9 @@ private[spark] class SubmittedDependencySecretBuilderImpl(
     secretName: String,
     jarsResourceSecret: String,
     filesResourceSecret: String,
+    jarsSecretKey: String,
+    filesSecretKey: String,
+    trustStoreSecretKey: String,
     resourceStagingServerSslOptions: SSLOptions)
     extends SubmittedDependencySecretBuilder {
 
@@ -43,15 +46,14 @@ private[spark] class SubmittedDependencySecretBuilderImpl(
     val trustStoreBase64 = resourceStagingServerSslOptions.trustStore.map { trustStoreFile =>
       require(trustStoreFile.isFile, "Dependency server trustStore provided at" +
         trustStoreFile.getAbsolutePath + " does not exist or is not a file.")
-      (INIT_CONTAINER_STAGING_SERVER_TRUSTSTORE_SECRET_KEY,
-        BaseEncoding.base64().encode(Files.toByteArray(trustStoreFile)))
+      (trustStoreSecretKey, BaseEncoding.base64().encode(Files.toByteArray(trustStoreFile)))
     }.toMap
     val jarsSecretBase64 = BaseEncoding.base64().encode(jarsResourceSecret.getBytes(Charsets.UTF_8))
     val filesSecretBase64 = BaseEncoding.base64().encode(
       filesResourceSecret.getBytes(Charsets.UTF_8))
     val secretData = Map(
-      INIT_CONTAINER_SUBMITTED_JARS_SECRET_KEY -> jarsSecretBase64,
-      INIT_CONTAINER_SUBMITTED_FILES_SECRET_KEY -> filesSecretBase64) ++
+      jarsSecretKey -> jarsSecretBase64,
+      filesSecretKey -> filesSecretBase64) ++
       trustStoreBase64
     val kubernetesSecret = new SecretBuilder()
       .withNewMetadata()
