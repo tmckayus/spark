@@ -148,7 +148,7 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
       .thenReturn(containerLocalizedFilesResolver)
     when(initContainerComponentsProvider.provideExecutorInitContainerConfiguration())
       .thenReturn(executorInitContainerConfiguration)
-    when(submittedDependenciesSecretBuilder.buildInitContainerSecret())
+    when(submittedDependenciesSecretBuilder.build())
       .thenReturn(INIT_CONTAINER_SECRET)
     when(initContainerConfigMapBuilder.build())
       .thenReturn(INIT_CONTAINER_CONFIG_MAP)

@@ -125,7 +125,7 @@ private[spark] class Client(
       val maybeSecretBuilder = initContainerComponentsProvider
           .provideSubmittedDependenciesSecretBuilder(
               maybeSubmittedResourceIdentifiers.map(_.secrets()))
-      val maybeSubmittedDependenciesSecret = maybeSecretBuilder.map(_.buildInitContainerSecret())
+      val maybeSubmittedDependenciesSecret = maybeSecretBuilder.map(_.build())
       val initContainerConfigMap = initContainerComponentsProvider
         .provideInitContainerConfigMapBuilder(maybeSubmittedResourceIdentifiers.map(_.ids()))
         .build()

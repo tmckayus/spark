@@ -29,7 +29,7 @@ private[spark] trait SubmittedDependencySecretBuilder {
    * Construct a Kubernetes secret bundle that init-containers can use to retrieve an
    * application's dependencies.
    */
-  def buildInitContainerSecret(): Secret
+  def build(): Secret
 }
 
 private[spark] class SubmittedDependencySecretBuilderImpl(
@@ -42,7 +42,7 @@ private[spark] class SubmittedDependencySecretBuilderImpl(
     resourceStagingServerSslOptions: SSLOptions)
     extends SubmittedDependencySecretBuilder {
 
-  override def buildInitContainerSecret(): Secret = {
+  override def build(): Secret = {
     val trustStoreBase64 = resourceStagingServerSslOptions.trustStore.map { trustStoreFile =>
       require(trustStoreFile.isFile, "Dependency server trustStore provided at" +
         trustStoreFile.getAbsolutePath + " does not exist or is not a file.")
