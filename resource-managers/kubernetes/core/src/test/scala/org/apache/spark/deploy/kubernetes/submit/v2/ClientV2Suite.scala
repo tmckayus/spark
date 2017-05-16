@@ -173,8 +173,7 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
         .thenReturn(RESOLVED_SPARK_FILES)
     when(executorInitContainerConfiguration.configureSparkConfForExecutorInitContainer(SPARK_CONF))
         .thenReturn(SPARK_CONF_WITH_EXECUTOR_INIT_CONF)
-    when[ResourceListOps](kubernetesClient.resourceList(anyVararg[HasMetadata]()))
-        .thenReturn(resourceListOps)
+    when(kubernetesClient.resourceList(anyVararg[HasMetadata]())).thenReturn(resourceListOps)
   }
 
   test("Run with dependency uploader") {
