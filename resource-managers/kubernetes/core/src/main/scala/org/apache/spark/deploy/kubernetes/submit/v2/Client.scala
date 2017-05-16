@@ -45,7 +45,6 @@ private[spark] class Client(
     mainClass: String,
     sparkConf: SparkConf,
     appArgs: Array[String],
-    mainAppResource: String,
     sparkJars: Seq[String],
     sparkFiles: Seq[String],
     kubernetesClientProvider: SubmissionKubernetesClientProvider,
@@ -133,7 +132,7 @@ private[spark] class Client(
           driverContainer.getName, basePod)
 
       val nonDriverPodKubernetesResources = Seq(initContainerConfigMap.configMap) ++
-        maybeSubmittedDependenciesSecret.toSeq
+          maybeSubmittedDependenciesSecret.toSeq
 
       val containerLocalizedFilesResolver = initContainerComponentsProvider
           .provideContainerLocalizedFilesResolver()
@@ -266,7 +265,6 @@ private[spark] object Client {
       mainClass,
       sparkConf,
       appArgs,
-      mainAppResource,
       sparkJars,
       sparkFiles,
       kubernetesClientProvider,
