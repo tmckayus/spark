@@ -24,7 +24,7 @@ import io.fabric8.kubernetes.client.dsl.{MixedOperation, NamespaceListVisitFromS
 import org.hamcrest.{BaseMatcher, Description}
 import org.mockito.{ArgumentCaptor, Mock, MockitoAnnotations}
 import org.mockito.Matchers.{any, anyVararg, argThat, eq => mockitoEq}
-import org.mockito.Mockito.{verify, when}
+import org.mockito.Mockito.{times, verify, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfter
@@ -202,6 +202,12 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
       case _ => false
     })
     verifyConfigMapWasCreated(createdResources)
+    verify(submittedDependencyUploader).uploadJars()
+    verify(submittedDependencyUploader).uploadFiles()
+    verify(initContainerComponentsProvider)
+        .provideInitContainerConfigMapBuilder(Some(SUBMITTED_RESOURCES.ids()))
+    verify(initContainerComponentsProvider)
+      .provideSubmittedDependenciesSecretBuilder(Some(SUBMITTED_RESOURCES.secrets()))
   }
 
   test("Run without dependency uploader") {
@@ -221,6 +227,12 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
     assert(createdResources.size === 1)
     verifyCreatedResourcesHaveOwnerReferences(createdResources)
     verifyConfigMapWasCreated(createdResources)
+    verify(submittedDependencyUploader, times(0)).uploadJars()
+    verify(submittedDependencyUploader, times(0)).uploadFiles()
+    verify(initContainerComponentsProvider)
+      .provideInitContainerConfigMapBuilder(None)
+    verify(initContainerComponentsProvider)
+      .provideSubmittedDependenciesSecretBuilder(None)
   }
 
   private def verifyCreatedResourcesHaveOwnerReferences(
