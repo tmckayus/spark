@@ -126,14 +126,14 @@ private[spark] class Client(
           .provideSubmittedDependenciesSecretBuilder(
               maybeSubmittedResourceIdentifiers.map(_.secrets()))
       val maybeSubmittedDependenciesSecret = maybeSecretBuilder.map(_.buildInitContainerSecret())
-      val initContainerConfigMapBuilder = initContainerComponentsProvider
-          .provideInitContainerConfigMapBuilder(maybeSubmittedResourceIdentifiers.map(_.ids()))
-      val initContainerConfigMap = initContainerConfigMapBuilder.buildInitContainerConfigMap()
-      val initContainerBootstrap = initContainerComponentsProvider.provideInitContainerBootstrap()
-      val podWithInitContainer = initContainerBootstrap.bootstrapInitContainerAndVolumes(
-          driverContainer.getName, basePod)
+      val initContainerConfigMap = initContainerComponentsProvider
+        .provideInitContainerConfigMapBuilder(maybeSubmittedResourceIdentifiers.map(_.ids()))
+        .build()
+      val podWithInitContainer = initContainerComponentsProvider
+        .provideInitContainerBootstrap()
+        .bootstrapInitContainerAndVolumes(driverContainer.getName, basePod)
 
-      val driverOwnedResources = Seq(initContainerConfigMap.configMap) ++
+      val driverOwnedResources = Seq(initContainerConfigMap) ++
           maybeSubmittedDependenciesSecret.toSeq
 
       val containerLocalizedFilesResolver = initContainerComponentsProvider

@@ -386,16 +386,16 @@ package object config extends Logging {
 
   private[spark] val INIT_CONTAINER_REMOTE_JARS =
     ConfigBuilder("spark.kubernetes.initcontainer.remoteJars")
-      .doc("Comma-separated list of jar URIs to download in the init-container. This is inferred" +
-        " from spark.jars.")
+      .doc("Comma-separated list of jar URIs to download in the init-container. This is" +
+        " calculated from spark.jars.")
       .internal()
       .stringConf
       .createOptional
 
   private[spark] val INIT_CONTAINER_REMOTE_FILES =
     ConfigBuilder("spark.kubernetes.initcontainer.remoteFiles")
-      .doc("Comma-separated list of file URIs to download in the init-container. This is inferred" +
-        " from spark.files.")
+      .doc("Comma-separated list of file URIs to download in the init-container. This is" +
+        " calculated from spark.files.")
       .internal()
       .stringConf
       .createOptional
@@ -425,7 +425,7 @@ package object config extends Logging {
   private[spark] val INIT_CONTAINER_MOUNT_TIMEOUT =
     ConfigBuilder("spark.kubernetes.mountdependencies.mountTimeout")
       .doc("Timeout before aborting the attempt to download and unpack local dependencies from" +
-        " remote locations and the resource etaging server when initializing the driver and" +
+        " remote locations and the resource staging server when initializing the driver and" +
         " executor pods.")
       .timeConf(TimeUnit.MINUTES)
       .createWithDefault(5)

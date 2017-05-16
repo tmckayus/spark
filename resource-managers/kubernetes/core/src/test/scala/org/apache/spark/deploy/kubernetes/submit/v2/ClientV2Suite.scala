@@ -87,8 +87,6 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
       .endMetadata()
     .addToData(CONFIG_MAP_KEY, CONFIG_MAP_DATA)
     .build()
-  private val INIT_CONTAINER_SINGLE_KEY_CONFIG_MAP =
-      SingleKeyConfigMap(CONFIG_MAP_KEY, INIT_CONTAINER_CONFIG_MAP)
   private val CUSTOM_DRIVER_IMAGE = "spark-custom-driver:latest"
   private val DRIVER_MEMORY_MB = 512
   private val DRIVER_MEMORY_OVERHEAD_MB = 128
@@ -152,8 +150,8 @@ class ClientV2Suite extends SparkFunSuite with BeforeAndAfter {
       .thenReturn(executorInitContainerConfiguration)
     when(submittedDependenciesSecretBuilder.buildInitContainerSecret())
       .thenReturn(INIT_CONTAINER_SECRET)
-    when(initContainerConfigMapBuilder.buildInitContainerConfigMap())
-      .thenReturn(INIT_CONTAINER_SINGLE_KEY_CONFIG_MAP)
+    when(initContainerConfigMapBuilder.build())
+      .thenReturn(INIT_CONTAINER_CONFIG_MAP)
     when(kubernetesClientProvider.get).thenReturn(kubernetesClient)
     when(kubernetesClient.pods()).thenReturn(podOps)
     when(podOps.create(any())).thenAnswer(new Answer[Pod] {

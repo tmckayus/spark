@@ -27,7 +27,7 @@ private[spark] trait SparkInitContainerConfigMapBuilder {
    * remote dependencies. The config map includes the remote jars and files to download,
    * as well as details to fetch files from a resource staging server, if applicable.
    */
-  def buildInitContainerConfigMap(): SingleKeyConfigMap
+  def build(): ConfigMap
 }
 
 private[spark] class SparkInitContainerConfigMapBuilderImpl(
@@ -40,7 +40,7 @@ private[spark] class SparkInitContainerConfigMapBuilderImpl(
     submittedDependenciesPlugin: Option[SubmittedDependencyInitContainerConfigPlugin])
     extends SparkInitContainerConfigMapBuilder {
 
-  override def buildInitContainerConfigMap(): SingleKeyConfigMap = {
+  override def build(): ConfigMap = {
     val remoteJarsToDownload = KubernetesFileUtils.getOnlyRemoteFiles(sparkJars)
     val remoteFilesToDownload = KubernetesFileUtils.getOnlyRemoteFiles(sparkFiles)
     val remoteJarsConf = if (remoteJarsToDownload.nonEmpty) {
@@ -61,12 +61,9 @@ private[spark] class SparkInitContainerConfigMapBuilderImpl(
     val submittedDependenciesConfig = submittedDependenciesPlugin.map { plugin =>
       plugin.configurationsToFetchSubmittedDependencies()
     }.toSeq.flatten.toMap
-    SingleKeyConfigMap(configMapKey,
-        PropertiesConfigMapFromScalaMapBuilder.buildConfigMap(
-            configMapName,
-            configMapKey,
-            baseInitContainerConfig ++ submittedDependenciesConfig))
+    PropertiesConfigMapFromScalaMapBuilder.buildConfigMap(
+        configMapName,
+        configMapKey,
+        baseInitContainerConfig ++ submittedDependenciesConfig)
   }
 }
-
-private[spark] case class SingleKeyConfigMap(configMapKey: String, configMap: ConfigMap)

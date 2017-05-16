@@ -53,10 +53,9 @@ class SparkInitContainerConfigMapBuilderSuite extends SparkFunSuite with BeforeA
       FILES_DOWNLOAD_PATH,
       CONFIG_MAP_NAME,
       CONFIG_MAP_KEY,
-      None).buildInitContainerConfigMap()
-    assert(configMap.configMapKey === CONFIG_MAP_KEY)
-    assert(configMap.configMap.getMetadata.getName === CONFIG_MAP_NAME)
-    val maybeConfigValue = configMap.configMap.getData.asScala.get(CONFIG_MAP_KEY)
+      None).build()
+    assert(configMap.getMetadata.getName === CONFIG_MAP_NAME)
+    val maybeConfigValue = configMap.getData.asScala.get(CONFIG_MAP_KEY)
     assert(maybeConfigValue.isDefined)
     maybeConfigValue.foreach { configValue =>
       val propertiesStringReader = new StringReader(configValue)
@@ -90,8 +89,8 @@ class SparkInitContainerConfigMapBuilderSuite extends SparkFunSuite with BeforeA
       FILES_DOWNLOAD_PATH,
       CONFIG_MAP_NAME,
       CONFIG_MAP_KEY,
-      Some(submittedDependenciesPlugin)).buildInitContainerConfigMap()
-    val configValue = configMap.configMap.getData.asScala(CONFIG_MAP_KEY)
+      Some(submittedDependenciesPlugin)).build()
+    val configValue = configMap.getData.asScala(CONFIG_MAP_KEY)
     val propertiesStringReader = new StringReader(configValue)
     val properties = new Properties()
     properties.load(propertiesStringReader)
