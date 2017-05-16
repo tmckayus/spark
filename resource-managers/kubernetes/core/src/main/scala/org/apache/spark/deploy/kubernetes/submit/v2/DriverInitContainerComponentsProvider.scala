@@ -17,7 +17,7 @@
 package org.apache.spark.deploy.kubernetes.submit.v2
 
 import org.apache.spark.{SecurityManager, SparkConf}
-import org.apache.spark.deploy.kubernetes.{SparkPodInitContainerBootstrap, SparkPodInitContainerBootstrapImpl, SubmittedDependencyInitContainerVolumesPluginImpl}
+import org.apache.spark.deploy.kubernetes.{InitContainerResourceStagingServerSecretPluginImpl, SparkPodInitContainerBootstrap, SparkPodInitContainerBootstrapImpl}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.deploy.rest.kubernetes.v2.RetrofitClientFactoryImpl
@@ -139,8 +139,8 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
   }
 
   override def provideInitContainerBootstrap(): SparkPodInitContainerBootstrap = {
-    val submittedDependencyPlugin = maybeSecretName.map { secret =>
-      new SubmittedDependencyInitContainerVolumesPluginImpl(
+    val resourceStagingServerSecretPlugin = maybeSecretName.map { secret =>
+      new InitContainerResourceStagingServerSecretPluginImpl(
           secret, INIT_CONTAINER_SECRET_VOLUME_MOUNT_PATH)
     }
     new SparkPodInitContainerBootstrapImpl(
@@ -150,6 +150,6 @@ private[spark] class DriverInitContainerComponentsProviderImpl(
       downloadTimeoutMinutes,
       configMapName,
       configMapKey,
-      submittedDependencyPlugin)
+      resourceStagingServerSecretPlugin)
   }
 }

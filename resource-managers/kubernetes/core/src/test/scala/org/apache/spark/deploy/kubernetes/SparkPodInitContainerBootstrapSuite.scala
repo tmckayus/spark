@@ -37,7 +37,7 @@ class SparkPodInitContainerBootstrapSuite extends SparkFunSuite with BeforeAndAf
   private val MAIN_CONTAINER_NAME = "spark-main"
   private val TRUE = "true"
 
-  private val submittedDependencyPlugin = new SubmittedDependencyInitContainerVolumesPlugin {
+  private val submittedDependencyPlugin = new InitContainerResourceStagingServerSecretPlugin {
     override def addResourceStagingServerSecretVolumeToPod(basePod: PodBuilder)
         : PodBuilder = {
       basePod.editMetadata()

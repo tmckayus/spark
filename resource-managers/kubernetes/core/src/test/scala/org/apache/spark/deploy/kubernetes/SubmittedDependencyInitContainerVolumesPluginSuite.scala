@@ -26,7 +26,7 @@ class SubmittedDependencyInitContainerVolumesPluginSuite extends SparkFunSuite {
 
   private val SECRET_NAME = "secret"
   private val SECRET_MOUNT_PATH = "/mnt/secrets"
-  private val plugin = new SubmittedDependencyInitContainerVolumesPluginImpl(
+  private val plugin = new InitContainerResourceStagingServerSecretPluginImpl(
       SECRET_NAME, SECRET_MOUNT_PATH)
 
   test("The init container should have the secret volume mount.") {

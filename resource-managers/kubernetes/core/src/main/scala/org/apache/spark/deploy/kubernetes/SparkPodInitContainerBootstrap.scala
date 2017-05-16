@@ -25,7 +25,7 @@ private[spark] trait SparkPodInitContainerBootstrap {
   /**
    * Bootstraps an init-container that downloads dependencies to be used by a main container.
    * Note that this primarily assumes that the init-container's configuration is being provided
-   * by a Config Map that was installed by some other component; that is, the implementation
+   * by a ConfigMap that was installed by some other component; that is, the implementation
    * here makes no assumptions about how the init-container is specifically configured. For
    * example, this class is unaware if the init-container is fetching remote dependencies or if
    * it is fetching dependencies from a resource staging server.
@@ -41,8 +41,8 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
     downloadTimeoutMinutes: Long,
     initContainerConfigMapName: String,
     initContainerConfigMapKey: String,
-    submittedDependencyPlugin: Option[SubmittedDependencyInitContainerVolumesPlugin])
-    extends SparkPodInitContainerBootstrap {
+    resourceStagingServerSecretPlugin: Option[InitContainerResourceStagingServerSecretPlugin])
+  extends SparkPodInitContainerBootstrap {
 
   override def bootstrapInitContainerAndVolumes(
       mainContainerName: String,
@@ -67,7 +67,7 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
         .endVolumeMount()
       .addToVolumeMounts(sharedVolumeMounts: _*)
       .addToArgs(INIT_CONTAINER_PROPERTIES_FILE_PATH)
-    val resolvedInitContainer = submittedDependencyPlugin.map { plugin =>
+    val resolvedInitContainer = resourceStagingServerSecretPlugin.map { plugin =>
       plugin.mountResourceStagingServerSecretIntoInitContainer(initContainer)
     }.getOrElse(initContainer).build()
     val podWithBasicVolumes = InitContainerUtil.appendInitContainer(
@@ -95,7 +95,7 @@ private[spark] class SparkPodInitContainerBootstrapImpl(
           .addToVolumeMounts(sharedVolumeMounts: _*)
           .endContainer()
         .endSpec()
-    submittedDependencyPlugin.map { plugin =>
+    resourceStagingServerSecretPlugin.map { plugin =>
       plugin.addResourceStagingServerSecretVolumeToPod(podWithBasicVolumes)
     }.getOrElse(podWithBasicVolumes)
   }

@@ -131,7 +131,7 @@ private[spark] class Client(
       val podWithInitContainer = initContainerBootstrap.bootstrapInitContainerAndVolumes(
           driverContainer.getName, basePod)
 
-      val nonDriverPodKubernetesResources = Seq(initContainerConfigMap.configMap) ++
+      val driverOwnedResources = Seq(initContainerConfigMap.configMap) ++
           maybeSubmittedDependenciesSecret.toSeq
 
       val containerLocalizedFilesResolver = initContainerComponentsProvider
@@ -186,11 +186,11 @@ private[spark] class Client(
           .withKind(createdDriverPod.getKind)
           .withController(true)
           .build()
-        nonDriverPodKubernetesResources.foreach { resource =>
+        driverOwnedResources.foreach { resource =>
           val originalMetadata = resource.getMetadata
           originalMetadata.setOwnerReferences(Collections.singletonList(driverPodOwnerReference))
         }
-        kubernetesClient.resourceList(nonDriverPodKubernetesResources: _*).createOrReplace()
+        kubernetesClient.resourceList(driverOwnedResources: _*).createOrReplace()
       } catch {
         case e: Throwable =>
           kubernetesClient.pods().delete(createdDriverPod)

@@ -20,7 +20,7 @@ import io.fabric8.kubernetes.api.model.{ContainerBuilder, PodBuilder, Secret}
 
 import org.apache.spark.deploy.kubernetes.constants._
 
-private[spark] trait SubmittedDependencyInitContainerVolumesPlugin {
+private[spark] trait InitContainerResourceStagingServerSecretPlugin {
 
   /**
    * Configure the init-container to mount the secret files that allow it to retrieve dependencies
@@ -36,10 +36,10 @@ private[spark] trait SubmittedDependencyInitContainerVolumesPlugin {
   def addResourceStagingServerSecretVolumeToPod(basePod: PodBuilder): PodBuilder
 }
 
-private[spark] class SubmittedDependencyInitContainerVolumesPluginImpl(
+private[spark] class InitContainerResourceStagingServerSecretPluginImpl(
     initContainerSecretName: String,
     initContainerSecretMountPath: String)
-    extends SubmittedDependencyInitContainerVolumesPlugin {
+    extends InitContainerResourceStagingServerSecretPlugin {
 
   override def mountResourceStagingServerSecretIntoInitContainer(
       initContainer: ContainerBuilder): ContainerBuilder = {

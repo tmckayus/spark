@@ -84,7 +84,7 @@ private class FileFetcherImpl(sparkConf: SparkConf, securityManager: SparkSecuri
 }
 
 /**
- * Process that fetches files from a resource staging server and/or arbi trary remote locations.
+ * Process that fetches files from a resource staging server and/or arbitrary remote locations.
  *
  * The init-container can handle fetching files from any of those sources, but not all of the
  * sources need to be specified. This allows for composing multiple instances of this container

@@ -17,7 +17,7 @@
 package org.apache.spark.scheduler.cluster.kubernetes
 
 import org.apache.spark.SparkContext
-import org.apache.spark.deploy.kubernetes.{SparkPodInitContainerBootstrapImpl, SubmittedDependencyInitContainerVolumesPluginImpl}
+import org.apache.spark.deploy.kubernetes.{InitContainerResourceStagingServerSecretPluginImpl, SparkPodInitContainerBootstrapImpl}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
@@ -46,7 +46,7 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
       initContainerSecretName <- maybeExecutorInitContainerSecretName
       initContainerSecretMountPath <- maybeExecutorInitContainerSecretMount
     } yield {
-      new SubmittedDependencyInitContainerVolumesPluginImpl(
+      new InitContainerResourceStagingServerSecretPluginImpl(
         initContainerSecretName,
         initContainerSecretMountPath)
     }
