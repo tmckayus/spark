@@ -18,12 +18,10 @@ package org.apache.spark.deploy.kubernetes.integrationtest
 
 import java.util.UUID
 
-import scala.collection.JavaConverters._
-
-import com.google.common.collect.ImmutableList
 import io.fabric8.kubernetes.client.internal.readiness.Readiness
 import org.scalatest.{BeforeAndAfter, DoNotDiscover}
 import org.scalatest.concurrent.Eventually
+import scala.collection.JavaConverters._
 
 import org.apache.spark.{SparkConf, SparkFunSuite, SSLOptions}
 import org.apache.spark.deploy.kubernetes.SSLUtils
@@ -31,17 +29,8 @@ import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.integrationtest.backend.IntegrationTestBackend
 import org.apache.spark.deploy.kubernetes.integrationtest.backend.minikube.Minikube
 import org.apache.spark.deploy.kubernetes.integrationtest.constants.MINIKUBE_TEST_BACKEND
-<<<<<<< HEAD
 import org.apache.spark.deploy.kubernetes.submit.v2.Client
 import org.apache.spark.launcher.SparkLauncher
-||||||| merged common ancestors
-import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
-=======
-import org.apache.spark.deploy.kubernetes.integrationtest.restapis.SparkRestApiV1
-import org.apache.spark.deploy.kubernetes.submit.v1.Client
-import org.apache.spark.deploy.kubernetes.submit.v2.{MountedDependencyManagerProviderImpl, SubmissionKubernetesClientProviderImpl}
-import org.apache.spark.status.api.v1.{ApplicationStatus, StageStatus}
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
 
 @DoNotDiscover
 private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
@@ -133,7 +122,7 @@ private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
       s"$assetServerUri/${KubernetesSuite.EXAMPLES_JAR_FILE.getName}",
       s"$assetServerUri/${KubernetesSuite.HELPER_JAR_FILE.getName}"
     ))
-    runSparkAppAndVerifyCompletion(SparkLauncher.NO_RESOURCE)
+    runSparkPiAndVerifyCompletion(SparkLauncher.NO_RESOURCE)
   }
 
   test("Mix remote resources with submitted ones.") {
@@ -143,7 +132,7 @@ private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
       KubernetesSuite.SUBMITTER_LOCAL_MAIN_APP_RESOURCE,
       s"$assetServerUri/${KubernetesSuite.HELPER_JAR_FILE.getName}"
     ))
-    runSparkAppAndVerifyCompletion(SparkLauncher.NO_RESOURCE)
+    runSparkPiAndVerifyCompletion(SparkLauncher.NO_RESOURCE)
   }
 
   private def launchStagingServer(resourceStagingServerSslOptions: SSLOptions): Unit = {
@@ -161,34 +150,8 @@ private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
         s"${Minikube.getMinikubeIp}:$resourceStagingServerPort")
   }
 
-<<<<<<< HEAD
-  private def runSparkAppAndVerifyCompletion(appResource: String): Unit = {
-    Client.run(sparkConf, appResource, KubernetesSuite.SPARK_PI_MAIN_CLASS, Array.empty[String])
-||||||| merged common ancestors
-  private def runSparkAppAndVerifyCompletion(appResource: String): Unit = {
-    val client = new org.apache.spark.deploy.kubernetes.submit.v2.Client(
-      sparkConf = sparkConf,
-      mainClass = KubernetesSuite.SPARK_PI_MAIN_CLASS,
-      appArgs = Array.empty[String],
-      mainAppResource = appResource,
-      kubernetesClientProvider =
-        new SubmissionKubernetesClientProviderImpl(sparkConf),
-      mountedDependencyManagerProvider =
-        new MountedDependencyManagerProviderImpl(sparkConf))
-    client.run()
-=======
   private def runSparkPiAndVerifyCompletion(appResource: String): Unit = {
-    val client = new org.apache.spark.deploy.kubernetes.submit.v2.Client(
-      sparkConf = sparkConf,
-      mainClass = KubernetesSuite.SPARK_PI_MAIN_CLASS,
-      appArgs = Array.empty[String],
-      mainAppResource = appResource,
-      kubernetesClientProvider =
-        new SubmissionKubernetesClientProviderImpl(sparkConf),
-      mountedDependencyManagerProvider =
-        new MountedDependencyManagerProviderImpl(sparkConf))
-    client.run()
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
+    Client.run(sparkConf, appResource, KubernetesSuite.SPARK_PI_MAIN_CLASS, Array.empty[String])
     val driverPod = kubernetesTestComponents.kubernetesClient
       .pods()
       .withLabel("spark-app-locator", APP_LOCATOR_LABEL)
@@ -205,16 +168,11 @@ private[spark] class KubernetesV2Suite(testBackend: IntegrationTestBackend)
   }
 
   private def runSparkGroupByTestAndVerifyCompletion(appResource: String): Unit = {
-    val client = new org.apache.spark.deploy.kubernetes.submit.v2.Client(
+    Client.run(
       sparkConf = sparkConf,
-      mainClass = KubernetesSuite.GROUP_BY_MAIN_CLASS,
       appArgs = Array.empty[String],
-      mainAppResource = appResource,
-      kubernetesClientProvider =
-        new SubmissionKubernetesClientProviderImpl(sparkConf),
-      mountedDependencyManagerProvider =
-        new MountedDependencyManagerProviderImpl(sparkConf))
-    client.run()
+      mainClass = KubernetesSuite.GROUP_BY_MAIN_CLASS,
+      mainAppResource = appResource)
     val driverPod = kubernetesTestComponents.kubernetesClient
       .pods()
       .withLabel("spark-app-locator", APP_LOCATOR_LABEL)

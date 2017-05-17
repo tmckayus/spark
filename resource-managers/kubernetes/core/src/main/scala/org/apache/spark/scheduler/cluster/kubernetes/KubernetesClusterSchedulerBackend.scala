@@ -23,29 +23,13 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import io.fabric8.kubernetes.api.model.{ContainerPortBuilder, EnvVarBuilder, EnvVarSourceBuilder, Pod, PodBuilder, QuantityBuilder}
 import io.fabric8.kubernetes.client.{KubernetesClientException, Watcher}
 import io.fabric8.kubernetes.client.Watcher.Action
+import org.apache.commons.io.FilenameUtils
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-<<<<<<< HEAD
-import org.apache.spark.{SparkContext, SparkException}
-import org.apache.spark.deploy.kubernetes.SparkPodInitContainerBootstrap
-||||||| merged common ancestors
-import io.fabric8.kubernetes.api.model.{ContainerPortBuilder, EnvVarBuilder,
-    EnvVarSourceBuilder, Pod, QuantityBuilder}
-import io.fabric8.kubernetes.client.{KubernetesClientException, Watcher}
-import io.fabric8.kubernetes.client.Watcher.Action
-
-import org.apache.spark.{SparkContext, SparkException}
-=======
-import io.fabric8.kubernetes.api.model._
-import io.fabric8.kubernetes.client.{KubernetesClientException, Watcher}
-import io.fabric8.kubernetes.client.Watcher.Action
-import org.apache.commons.io.FilenameUtils
-
 import org.apache.spark.{SparkContext, SparkEnv, SparkException}
-import org.apache.spark.deploy.kubernetes.ConfigurationUtils
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
+import org.apache.spark.deploy.kubernetes.{ConfigurationUtils, SparkPodInitContainerBootstrap}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpointAddress, RpcEnv}
@@ -68,14 +52,10 @@ private[spark] class KubernetesClusterSchedulerBackend(
   private val EXECUTOR_PODS_BY_IPS_LOCK = new Object
   private val executorPodsByIPs = new mutable.HashMap[String, Pod] // Indexed by executor IP addrs.
 
-<<<<<<< HEAD
   private val executorExtraClasspath = conf.get(
     org.apache.spark.internal.config.EXECUTOR_CLASS_PATH)
   private val executorJarsDownloadDir = conf.get(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION)
-||||||| merged common ancestors
-=======
   private var shufflePodCache: Option[ShufflePodCache] = None
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
   private val executorDockerImage = conf.get(EXECUTOR_DOCKER_IMAGE)
   private val kubernetesNamespace = conf.get(KUBERNETES_NAMESPACE)
   private val executorPort = conf.getInt("spark.executor.port", DEFAULT_STATIC_PORT)
@@ -347,7 +327,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
         .endContainer()
       .endSpec()
 
-    val resolvedPodBuilder = shuffleServiceConfig
+    val withMaybeShuffleConfigPodBuilder = shuffleServiceConfig
       .map { config =>
         config.shuffleDirs.foldLeft(basePodBuilder) { (builder, dir) =>
           builder
@@ -367,78 +347,14 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .endSpec()
         }
       }.getOrElse(basePodBuilder)
+    val resolvedExecutorPod = executorInitContainerBootstrap.map { bootstrap =>
+      bootstrap.bootstrapInitContainerAndVolumes(
+        "executor",
+        withMaybeShuffleConfigPodBuilder)
+    }.getOrElse(withMaybeShuffleConfigPodBuilder)
 
     try {
-<<<<<<< HEAD
-      val baseExecutorPod = new PodBuilder()
-        .withNewMetadata()
-          .withName(name)
-          .withLabels(selectors)
-          .addNewOwnerReference()
-            .withController(true)
-            .withApiVersion(driverPod.getApiVersion)
-            .withKind(driverPod.getKind)
-            .withName(driverPod.getMetadata.getName)
-            .withUid(driverPod.getMetadata.getUid)
-            .endOwnerReference()
-          .endMetadata()
-        .withNewSpec()
-          .withHostname(hostname)
-          .addNewContainer()
-            .withName(s"executor")
-            .withImage(executorDockerImage)
-            .withImagePullPolicy("IfNotPresent")
-            .withNewResources()
-              .addToRequests("memory", executorMemoryQuantity)
-              .addToLimits("memory", executorMemoryLimitQuantity)
-              .addToRequests("cpu", executorCpuQuantity)
-              .addToLimits("cpu", executorCpuQuantity)
-              .endResources()
-            .withEnv(requiredEnv.asJava)
-            .addToEnv(executorExtraClasspathEnv.toSeq: _*)
-            .withPorts(requiredPorts.asJava)
-            .endContainer()
-          .endSpec()
-      val resolvedExecutorPod = executorInitContainerBootstrap.map { bootstrap =>
-        bootstrap.bootstrapInitContainerAndVolumes(
-          "executor",
-          baseExecutorPod)
-      }.getOrElse(baseExecutorPod)
       (executorId, kubernetesClient.pods.create(resolvedExecutorPod.build()))
-||||||| merged common ancestors
-      (executorId, kubernetesClient.pods().createNew()
-        .withNewMetadata()
-          .withName(name)
-          .withLabels(selectors)
-          .withOwnerReferences()
-          .addNewOwnerReference()
-            .withController(true)
-            .withApiVersion(driverPod.getApiVersion)
-            .withKind(driverPod.getKind)
-            .withName(driverPod.getMetadata.getName)
-            .withUid(driverPod.getMetadata.getUid)
-          .endOwnerReference()
-        .endMetadata()
-        .withNewSpec()
-          .withHostname(hostname)
-          .addNewContainer()
-            .withName(s"executor")
-            .withImage(executorDockerImage)
-            .withImagePullPolicy("IfNotPresent")
-            .withNewResources()
-              .addToRequests("memory", executorMemoryQuantity)
-              .addToLimits("memory", executorMemoryLimitQuantity)
-              .addToRequests("cpu", executorCpuQuantity)
-              .addToLimits("cpu", executorCpuQuantity)
-              .endResources()
-            .withEnv(requiredEnv.asJava)
-            .withPorts(requiredPorts.asJava)
-            .endContainer()
-          .endSpec()
-        .done())
-=======
-      (executorId, kubernetesClient.pods().create(resolvedPodBuilder.build()))
->>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
     } catch {
       case throwable: Throwable =>
         logError("Failed to allocate executor pod.", throwable)
