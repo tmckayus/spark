@@ -106,6 +106,17 @@ package object constants {
   private[spark] val INIT_CONTAINER_PROPERTIES_FILE_DIR = "/etc/spark-init"
   private[spark] val INIT_CONTAINER_PROPERTIES_FILE_NAME = "spark-init.properties"
   private[spark] val INIT_CONTAINER_PROPERTIES_FILE_PATH =
+<<<<<<< HEAD
     s"$INIT_CONTAINER_PROPERTIES_FILE_DIR/$INIT_CONTAINER_PROPERTIES_FILE_NAME"
   private[spark] val INIT_CONTAINER_SECRET_VOLUME_NAME = "spark-init-secret"
+||||||| merged common ancestors
+    s"$INIT_CONTAINER_PROPERTIES_FILE_MOUNT_PATH/$INIT_CONTAINER_PROPERTIES_FILE_NAME"
+  private[spark] val DOWNLOAD_JARS_VOLUME_NAME = "download-jars"
+  private[spark] val DOWNLOAD_FILES_VOLUME_NAME = "download-files"
+=======
+    s"$INIT_CONTAINER_PROPERTIES_FILE_MOUNT_PATH/$INIT_CONTAINER_PROPERTIES_FILE_NAME"
+  private[spark] val DOWNLOAD_JARS_VOLUME_NAME = "download-jars"
+  private[spark] val DOWNLOAD_FILES_VOLUME_NAME = "download-files"
+  private[spark] val DEFAULT_SHUFFLE_MOUNT_NAME = "shuffle"
+>>>>>>> apache-spark-on-k8s/branch-2.1-kubernetes
 }
