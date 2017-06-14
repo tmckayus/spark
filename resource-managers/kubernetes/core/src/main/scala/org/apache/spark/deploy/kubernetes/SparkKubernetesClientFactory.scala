@@ -55,7 +55,8 @@ private[spark] object SparkKubernetesClientFactory {
             s" value $oauthTokenConf.")
 
     val trustStorePasswordConf = s"$kubernetesAuthConfPrefix.$TRUSTSTORE_PASSWORD_CONF_SUFFIX"
-    val trustStorePasswordFileConf = s"$kubernetesAuthConfPrefix.$TRUSTSTORE_PASSWORD_FILE_CONF_SUFFIX"
+    val trustStorePasswordFileConf =
+        s"$kubernetesAuthConfPrefix.$TRUSTSTORE_PASSWORD_FILE_CONF_SUFFIX"
     val trustStore = sparkConf
         .getOption(s"$kubernetesAuthConfPrefix.$TRUSTSTORE_CONF_SUFFIX")
     val trustStorePassword = sparkConf.getOption(trustStorePasswordConf)
