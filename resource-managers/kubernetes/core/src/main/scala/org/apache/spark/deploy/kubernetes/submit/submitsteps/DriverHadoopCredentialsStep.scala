@@ -23,7 +23,7 @@ import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
 
 
-class DriverHadoopTokensStep(submissionSparkConf: SparkConf) extends DriverConfigurationStep {
+class DriverHadoopCredentialsStep(submissionSparkConf: SparkConf) extends DriverConfigurationStep {
 
   private val maybeMountedHadoopSecret = submissionSparkConf.getOption(MOUNTED_HADOOP_SECRET_CONF)
 

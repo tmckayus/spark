@@ -20,7 +20,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.ConfigurationUtils
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
-import org.apache.spark.deploy.kubernetes.submit.submitsteps.{BaseDriverConfigurationStep, DependencyResolutionStep, DriverConfigurationStep, DriverKubernetesCredentialsStep, InitContainerBootstrapStep, PythonStep}
+import org.apache.spark.deploy.kubernetes.submit.submitsteps._
 import org.apache.spark.deploy.kubernetes.submit.submitsteps.initcontainer.InitContainerConfigurationStepsOrchestrator
 import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.util.Utils
@@ -94,7 +94,7 @@ private[spark] class DriverConfigurationStepsOrchestrator(
         submissionSparkConf)
     val kubernetesCredentialsStep = new DriverKubernetesCredentialsStep(
         submissionSparkConf, kubernetesResourceNamePrefix)
-    val hadoopTokensStep = new DriverHadoopTokensStep(submissionSparkConf)
+    val hadoopCredentialsStep = new DriverHadoopCredentialsStep(submissionSparkConf)
     val pythonStep = mainAppResource match {
       case PythonMainAppResource(mainPyResource) =>
         Option(new PythonStep(mainPyResource, additionalPythonFiles, filesDownloadPath))
@@ -132,7 +132,7 @@ private[spark] class DriverConfigurationStepsOrchestrator(
     Seq(
       initialSubmissionStep,
       kubernetesCredentialsStep,
-      hadoopTokensStep,
+      hadoopCredentialsStep,
       dependencyResolutionStep) ++
       initContainerBootstrapStep.toSeq ++
       pythonStep.toSeq
