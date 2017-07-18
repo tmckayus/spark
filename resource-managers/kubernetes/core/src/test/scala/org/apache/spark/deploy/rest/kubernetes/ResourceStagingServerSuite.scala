@@ -57,22 +57,26 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter with 
     stagedResourcesCleaner = mock[StagedResourcesCleaner]
     serviceImpl = new ResourceStagingServiceImpl(
       new StagedResourcesStoreImpl(Utils.createTempDir()), stagedResourcesCleaner)
-    for (i <- 1 to MAX_SERVER_START_ATTEMPTS) {
+    var currentAttempt = 0
+    var successfulStart = false
+    while (currentAttempt < MAX_SERVER_START_ATTEMPTS && !successfulStart) {
       serverPort = new ServerSocket(0).getLocalPort
       try {
         server = new ResourceStagingServer(serverPort, serviceImpl, sslOptionsProvider)
+        successfulStart = true
       } catch {
         case e: Exception if Utils.isBindCollision(e) =>
-          if (i == MAX_SERVER_START_ATTEMPTS) {
+          currentAttempt += 1
+          if (currentAttempt == MAX_SERVER_START_ATTEMPTS) {
             throw new RuntimeException(s"Failed to bind to a random port" +
               s" $MAX_SERVER_START_ATTEMPTS times. Last attempted port: $serverPort", e)
           } else {
-            logWarning(s"Attempt $i/$MAX_SERVER_START_ATTEMPTS failed to start server on" +
-              s" port $serverPort.", e)
+            logWarning(s"Attempt $currentAttempt/$MAX_SERVER_START_ATTEMPTS failed to start" +
+              s" server on port $serverPort.", e)
           }
       }
-      logInfo(s"Started resource staging server on port $serverPort.")
     }
+    logInfo(s"Started resource staging server on port $serverPort.")
   }
 
   after {
