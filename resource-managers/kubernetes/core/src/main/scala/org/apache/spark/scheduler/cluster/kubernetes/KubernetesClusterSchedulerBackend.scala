@@ -37,7 +37,7 @@ import org.apache.spark.{SparkContext, SparkEnv, SparkException}
 import org.apache.spark.deploy.kubernetes.{ConfigurationUtils, InitContainerResourceStagingServerSecretPlugin, PodWithDetachedInitContainer, SparkPodInitContainerBootstrap}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
-import org.apache.spark.deploy.kubernetes.submit.InitContainerUtil
+import org.apache.spark.deploy.kubernetes.submit.{HadoopSecretUtil, InitContainerUtil}
 import org.apache.spark.network.netty.SparkTransportConf
 import org.apache.spark.network.shuffle.kubernetes.KubernetesExternalShuffleClient
 import org.apache.spark.rpc.{RpcAddress, RpcCallContext, RpcEndpointAddress, RpcEnv}
@@ -129,6 +129,8 @@ private[spark] class KubernetesClusterSchedulerBackend(
 
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
     ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
+
+  private val maybeMountedHadoopSecret = conf.getOption(MOUNTED_HADOOP_SECRET_CONF)
 
   private val driverPod = try {
     kubernetesClient.pods().inNamespace(kubernetesNamespace).
@@ -582,9 +584,14 @@ private[spark] class KubernetesClusterSchedulerBackend(
 
     val executorPodWithNodeAffinity = addNodeAffinityAnnotationIfUseful(
         executorPodWithInitContainer, nodeToLocalTaskCount)
-    val resolvedExecutorPod = new PodBuilder(executorPodWithNodeAffinity)
+    val executorPodWithMountedHadoopToken = HadoopSecretUtil.configurePod(maybeMountedHadoopSecret,
+      executorPodWithNodeAffinity)
+    val containerWithMountedHadoopToken = HadoopSecretUtil.configureContainer(
+      maybeMountedHadoopSecret, initBootstrappedExecutorContainer)
+
+    val resolvedExecutorPod = new PodBuilder(executorPodWithMountedHadoopToken)
       .editSpec()
-        .addToContainers(initBootstrappedExecutorContainer)
+        .addToContainers(containerWithMountedHadoopToken)
         .endSpec()
       .build()
     try {

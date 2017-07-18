@@ -16,46 +16,24 @@
  */
 package org.apache.spark.deploy.kubernetes.submit.submitsteps
 
-import io.fabric8.kubernetes.api.model.{ContainerBuilder, PodBuilder}
-
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.kubernetes.config._
-import org.apache.spark.deploy.kubernetes.constants._
+import org.apache.spark.deploy.kubernetes.submit.HadoopSecretUtil
 
-
-class DriverHadoopCredentialsStep(submissionSparkConf: SparkConf) extends DriverConfigurationStep {
+private[spark] class DriverHadoopCredentialsStep(submissionSparkConf: SparkConf)
+  extends DriverConfigurationStep {
 
   private val maybeMountedHadoopSecret = submissionSparkConf.getOption(MOUNTED_HADOOP_SECRET_CONF)
 
   override def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec = {
-    val driverPodWithMountedHadoopTokens = maybeMountedHadoopSecret.map { secret =>
-      new PodBuilder(driverSpec.driverPod)
-        .editOrNewSpec()
-          .addNewVolume()
-            .withName(SPARK_APP_HADOOP_SECRET_VOLUME_NAME)
-            .withNewSecret()
-              .withSecretName(secret)
-            .endSecret()
-          .endVolume()
-        .endSpec()
-        .build()
-    }.getOrElse(driverSpec.driverPod)
-    val driverContainerWithMountedSecretVolume = maybeMountedHadoopSecret.map { secret =>
-      new ContainerBuilder(driverSpec.driverContainer)
-          .addNewVolumeMount()
-            .withName(SPARK_APP_HADOOP_SECRET_VOLUME_NAME)
-            .withMountPath(SPARK_APP_HADOOP_CREDENTIALS_BASE_DIR)
-          .endVolumeMount()
-          .addNewEnv()
-            .withName(ENV_HADOOP_TOKEN_FILE_LOCATION)
-            .withValue(SPARK_APP_HADOOP_TOKEN_FILE_PATH)
-          .endEnv()
-        .build()
-    }.getOrElse(driverSpec.driverContainer)
+    val podWithMountedHadoopToken = HadoopSecretUtil.configurePod(maybeMountedHadoopSecret,
+      driverSpec.driverPod)
+    val containerWithMountedHadoopToken = HadoopSecretUtil.configureContainer(
+      maybeMountedHadoopSecret, driverSpec.driverContainer)
     driverSpec.copy(
-      driverPod = driverPodWithMountedHadoopTokens,
+      driverPod = podWithMountedHadoopToken,
       otherKubernetesResources = driverSpec.otherKubernetesResources,
       driverSparkConf = driverSpec.driverSparkConf,
-      driverContainer = driverContainerWithMountedSecretVolume)
+      driverContainer = containerWithMountedHadoopToken)
   }
 }
