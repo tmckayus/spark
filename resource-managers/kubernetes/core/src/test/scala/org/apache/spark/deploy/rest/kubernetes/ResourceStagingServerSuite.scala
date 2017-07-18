@@ -29,6 +29,7 @@ import retrofit2.Call
 
 import org.apache.spark.{SparkFunSuite, SSLOptions}
 import org.apache.spark.deploy.kubernetes.SSLUtils
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
 
 /**
@@ -40,13 +41,15 @@ import org.apache.spark.util.Utils
  * we've configured the Jetty server correctly and that the endpoints reached over HTTP can
  * receive streamed uploads and can stream downloads.
  */
-class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
+class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter with Logging {
+
+  private val MAX_SERVER_START_ATTEMPTS = 5
   private var serviceImpl: ResourceStagingService = _
   private var stagedResourcesCleaner: StagedResourcesCleaner = _
   private var server: ResourceStagingServer = _
   private val OBJECT_MAPPER = new ObjectMapper().registerModule(new DefaultScalaModule)
 
-  private val serverPort = new ServerSocket(0).getLocalPort
+  private var serverPort : Int = _
 
   private val sslOptionsProvider = new SettableReferenceSslOptionsProvider()
 
@@ -54,7 +57,22 @@ class ResourceStagingServerSuite extends SparkFunSuite with BeforeAndAfter {
     stagedResourcesCleaner = mock[StagedResourcesCleaner]
     serviceImpl = new ResourceStagingServiceImpl(
       new StagedResourcesStoreImpl(Utils.createTempDir()), stagedResourcesCleaner)
-    server = new ResourceStagingServer(serverPort, serviceImpl, sslOptionsProvider)
+    for (i <- 1 to MAX_SERVER_START_ATTEMPTS) {
+      serverPort = new ServerSocket(0).getLocalPort
+      try {
+        server = new ResourceStagingServer(serverPort, serviceImpl, sslOptionsProvider)
+      } catch {
+        case e: Exception if Utils.isBindCollision(e) =>
+          if (i == MAX_SERVER_START_ATTEMPTS) {
+            throw new RuntimeException(s"Failed to bind to a random port" +
+              s" $MAX_SERVER_START_ATTEMPTS times. Last attempted port: $serverPort", e)
+          } else {
+            logWarning(s"Attempt $i/$MAX_SERVER_START_ATTEMPTS failed to start server on" +
+              s" port $serverPort.", e)
+          }
+      }
+      logInfo(s"Started resource staging server on port $serverPort.")
+    }
   }
 
   after {
