@@ -94,6 +94,7 @@ private[spark] class DriverConfigurationStepsOrchestrator(
         submissionSparkConf)
     val kubernetesCredentialsStep = new DriverKubernetesCredentialsStep(
         submissionSparkConf, kubernetesResourceNamePrefix)
+    val hadoopTokensStep = new DriverHadoopTokensStep(submissionSparkConf)
     val pythonStep = mainAppResource match {
       case PythonMainAppResource(mainPyResource) =>
         Option(new PythonStep(mainPyResource, additionalPythonFiles, filesDownloadPath))
@@ -131,6 +132,7 @@ private[spark] class DriverConfigurationStepsOrchestrator(
     Seq(
       initialSubmissionStep,
       kubernetesCredentialsStep,
+      hadoopTokensStep,
       dependencyResolutionStep) ++
       initContainerBootstrapStep.toSeq ++
       pythonStep.toSeq

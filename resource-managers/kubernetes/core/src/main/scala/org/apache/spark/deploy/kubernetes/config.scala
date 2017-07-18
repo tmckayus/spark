@@ -69,6 +69,8 @@ package object config extends Logging {
   private[spark] val CLIENT_CERT_FILE_CONF_SUFFIX = "clientCertFile"
   private[spark] val CA_CERT_FILE_CONF_SUFFIX = "caCertFile"
 
+  private[spark] val MOUNTED_HADOOP_SECRET_CONF = "spark.kubernetes.mounted.hadoopSecret"
+
   private[spark] val RESOURCE_STAGING_SERVER_USE_SERVICE_ACCOUNT_CREDENTIALS =
     ConfigBuilder(
           s"$APISERVER_AUTH_RESOURCE_STAGING_SERVER_CONF_PREFIX.useServiceAccountCredentials")
