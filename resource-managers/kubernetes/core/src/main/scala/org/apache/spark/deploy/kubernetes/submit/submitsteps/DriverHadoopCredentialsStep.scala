@@ -29,11 +29,10 @@ private[spark] class DriverHadoopCredentialsStep(submissionSparkConf: SparkConf)
     val podWithMountedHadoopToken = HadoopSecretUtil.configurePod(maybeMountedHadoopSecret,
       driverSpec.driverPod)
     val containerWithMountedHadoopToken = HadoopSecretUtil.configureContainer(
-      maybeMountedHadoopSecret, driverSpec.driverContainer)
+      maybeMountedHadoopSecret,
+      driverSpec.driverContainer)
     driverSpec.copy(
       driverPod = podWithMountedHadoopToken,
-      otherKubernetesResources = driverSpec.otherKubernetesResources,
-      driverSparkConf = driverSpec.driverSparkConf,
       driverContainer = containerWithMountedHadoopToken)
   }
 }
