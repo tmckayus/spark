@@ -130,7 +130,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
     ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
 
-  private val maybeMountedHadoopSecret = conf.getOption(MOUNTED_HADOOP_SECRET_CONF)
+  private val maybeMountedHadoopSecret = conf.get(MOUNTED_HADOOP_SECRET_CONF)
 
   private val driverPod = try {
     kubernetesClient.pods().inNamespace(kubernetesNamespace).

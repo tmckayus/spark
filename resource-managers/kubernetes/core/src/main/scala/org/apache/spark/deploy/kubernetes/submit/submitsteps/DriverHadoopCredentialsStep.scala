@@ -23,7 +23,7 @@ import org.apache.spark.deploy.kubernetes.submit.HadoopSecretUtil
 private[spark] class DriverHadoopCredentialsStep(submissionSparkConf: SparkConf)
   extends DriverConfigurationStep {
 
-  private val maybeMountedHadoopSecret = submissionSparkConf.getOption(MOUNTED_HADOOP_SECRET_CONF)
+  private val maybeMountedHadoopSecret = submissionSparkConf.get(MOUNTED_HADOOP_SECRET_CONF)
 
   override def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec = {
     val podWithMountedHadoopToken = HadoopSecretUtil.configurePod(maybeMountedHadoopSecret,
