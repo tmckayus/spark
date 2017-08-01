@@ -69,6 +69,18 @@ package object config extends Logging {
   private[spark] val CLIENT_CERT_FILE_CONF_SUFFIX = "clientCertFile"
   private[spark] val CA_CERT_FILE_CONF_SUFFIX = "caCertFile"
 
+  // TODO: This option is intended to be used for internal prototype only until the submission
+  // client automatically creates the secret file. Remove this option afterward
+  // unless other use is found.
+  private[spark] val MOUNTED_HADOOP_SECRET_CONF =
+    ConfigBuilder("spark.kubernetes.mounted.hadoopSecret")
+        .doc("Use a Kubernetes secret containing Hadoop tokens such as an HDFS delegation token." +
+          " The secret should have an entry named 'hadoop-token-file' under the data section," +
+          " which contains binary dumps of Hadoop tokens.")
+        .internal()
+        .stringConf
+        .createOptional
+
   private[spark] val RESOURCE_STAGING_SERVER_USE_SERVICE_ACCOUNT_CREDENTIALS =
     ConfigBuilder(
           s"$APISERVER_AUTH_RESOURCE_STAGING_SERVER_CONF_PREFIX.useServiceAccountCredentials")
