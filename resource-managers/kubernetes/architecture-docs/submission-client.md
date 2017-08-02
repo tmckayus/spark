@@ -5,8 +5,8 @@ title: Implementation of Submitting Applications to Kubernetes
 
 
 Similarly to YARN and Standalone mode, it is common for Spark applications to be deployed on Kubernetes through the
-`spark-submit` process. Applications are deployed on Kubernetes via sending YML files to the Kubernetes API server.
-These YML files declare the structure and behavior of the processes that will be run. However, such a declarative
+`spark-submit` process. Applications are deployed on Kubernetes via sending YAML files to the Kubernetes API server.
+These YAML files declare the structure and behavior of the processes that will be run. However, such a declarative
 approach to application deployment differs considerably from how Spark applications are deployed via the `spark-submit`
 API. There are contracts provided by `spark-submit` that should work in Kubernetes in a consistent manner to the other
 cluster managers that `spark-submit` can deploy on.
@@ -24,8 +24,8 @@ for a specific type of cluster manager. The top level entry point for the Kubern
 
 # Driver Configuration Steps
 
-Submitting applications to Kubernetes became more and more complex over time as the submission client had to accommodate
-the large feature matrices of the Spark and Kubernetes ecosystems. The submission client is thus broken down into a
+In order to render submission parameters into the final Kubernetes driver pod specification, and do it in a scalable
+manner, the submission client breaks pod construction down into a
 series of configuration steps, each of which is responsible for handling some specific aspect of configuring the driver.
 A top level component then iterates through all of the steps to produce a final set of Kubernetes resources that are
 then deployed on the cluster.
@@ -34,29 +34,33 @@ then deployed on the cluster.
 
 More formally, a configuration step must implement the following trait:
 
-    package org.apache.spark.deploy.kubernetes.submit.submitsteps
+```scala
+package org.apache.spark.deploy.kubernetes.submit.submitsteps
 
-    /**
-     * Represents a step in preparing the Kubernetes driver.
-     */
-    private[spark] trait DriverConfigurationStep {
+/**
+ * Represents a step in preparing the Kubernetes driver.
+ */
+private[spark] trait DriverConfigurationStep {
 
-      /**
-       * Apply some transformation to the previous state of the driver to add a new feature to it.
-       */
-      def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec
-    }
+  /**
+   * Apply some transformation to the previous state of the driver to add a new feature to it.
+   */
+  def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec
+}
+```
 
-A `DriverConfigurationStep` is thus a 1-1 mapping that transforms a `KubernetesDriverSpec` into another
+A `DriverConfigurationStep` is thus a function that transforms a `KubernetesDriverSpec` into another
 `KubernetesDriverSpec`, by taking the original specification and making additions to the specification in accordance to
 the specific feature that step is responsible for. A `KubernetesDriverSpec` is a data structure with the following
 properties:
 
-    private[spark] case class KubernetesDriverSpec(
-        driverPod: Pod,
-        driverContainer: Container,
-        otherKubernetesResources: Seq[HasMetadata],
-        driverSparkConf: SparkConf)
+```scala
+private[spark] case class KubernetesDriverSpec(
+    driverPod: Pod,
+    driverContainer: Container,
+    otherKubernetesResources: Seq[HasMetadata],
+    driverSparkConf: SparkConf)
+```
 
 The `Pod` and `Container` classes are Java representations of Kubernetes pods and containers respectively, and the
 `HasMetadata` type corresponds to an arbitrary Kubernetes API resource such as a `Secret` or a `ConfigMap`. Kubernetes
@@ -80,19 +84,22 @@ top level submission client takes the final `KubernetesDriverSpec` object and bu
 Kubernetes API server to deploy the Kubernetes resources that comprise the Spark driver. The top level submission
 process can thus be expressed as follows in pseudo-code with roughly Scala syntax:
 
-    def runApplication(sparkSubmitArguments: SparkSubmitArguments) {
-      val initialSpec = createEmptyDriverSpec()
-      val orchestrator = new DriverConfigurationStepsOrchestrator(sparkSubmitArguments)
-      val steps = orchestrator.getSubmissionSteps()
-      var currentSpec = initialSpec
-      for (step <- steps) {
-        currentSpec = step.configureDriver(currentSpec) 
-      }
-      // Put the container in the pod spec
-      val resolvedPod = attachContainer(currentSpec.driverPod, currentSpec.driverContainer)
-      kubernetes.create(resolvedPod + currentSpec.otherKubernetesResources)
-    }
-    
+```scala
+def runApplication(sparkSubmitArguments: SparkSubmitArguments) {
+  val initialSpec = createEmptyDriverSpec()
+  val orchestrator = new DriverConfigurationStepsOrchestrator(sparkSubmitArguments)
+  val steps = orchestrator.getSubmissionSteps()
+  var currentSpec = initialSpec
+  // iteratively apply the configuration steps to build up the pod spec:
+  for (step <- steps) {
+    currentSpec = step.configureDriver(currentSpec)
+  }
+  // Put the container in the pod spec
+  val resolvedPod = attachContainer(currentSpec.driverPod, currentSpec.driverContainer)
+  kubernetes.create(resolvedPod + currentSpec.otherKubernetesResources)
+}
+```
+
 ## Writing a New Configuration Step
 
 All configuration steps should be placed in the `org.apache.spark.deploy.kubernetes.submit.submitsteps` package.
@@ -121,21 +128,23 @@ to the server.
 The resource staging server has the following Scala API which would then be translated into HTTP endpoints via Jetty and
 JAX-RS. Associated structures passed as input and output are also defined below:
 
-    private[spark] trait ResourceStagingService {
+```scala
+private[spark] trait ResourceStagingService {
 
-      def uploadResources(resources: InputStream, resourcesOwner: StagedResourcesOwner): SubmittedResourceIdAndSecret
-      def downloadResources(resourceId: String, resourceSecret: String): StreamingOutput
-    }
+  def uploadResources(resources: InputStream, resourcesOwner: StagedResourcesOwner): SubmittedResourceIdAndSecret
+  def downloadResources(resourceId: String, resourceSecret: String): StreamingOutput
+}
+
+case class StagedResourcesOwner(
+    ownerNamespace: String,
+    ownerLabels: Map[String, String],
+    ownerType: StagedResourcesOwnerType.OwnerType)
     
-    case class StagedResourcesOwner(
-        ownerNamespace: String,
-        ownerLabels: Map[String, String],
-        ownerType: StagedResourcesOwnerType.OwnerType)
-        
-    // Pseudo-code to represent an enum
-    enum StagedResourcesOwnerType.OwnerType = { Pod }
-    
-    case class SubmittedResourceIdAndSecret(resourceId: String, resourceSecret: String) 
+// Pseudo-code to represent an enum
+enum StagedResourcesOwnerType.OwnerType = { Pod }
+
+case class SubmittedResourceIdAndSecret(resourceId: String, resourceSecret: String)
+```
 
 Clients that send resources to the server do so in a streaming manner so that both the server and the client do not
 need to hold the entire resource bundle in memory. Aside from the notion of the `StagedResourcesOwner` that is provided
@@ -172,7 +181,8 @@ URL for the resource staging server to send the files to.
 
 Local jars and files are compacted into a tarball which are then uploaded to the resource staging server. The submission
 client then knows the secret token that the driver and executors must use to download the files again. These secrets
-are mounted into an init-container that runs before the driver and executor processes run, and the init-container
+are mounted into an [init-container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+that runs before the driver and executor processes run, and the init-container
 downloads the uploaded resources from the resource staging server.
 
 ### Other Considered Alternatives
@@ -198,7 +208,8 @@ push their dependencies to their appropriate systems and refer to them by their 
 
 ## Init-Containers
 
-The submission client and the scheduler backend both use init-containers to localize resources before the driver and
+The driver pod and executor pods both use [init-containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+to localize resources before the driver and
 executor processes launch. As mentioned before, the init-container fetches dependencies from the resource staging
 server. However, even if the resource staging server is not being used, files still need to be localized from remote
 locations such as HDFS clusters or HTTP file servers. The init-container will fetch these dependencies accordingly as
@@ -213,8 +224,8 @@ being a failure in the pod's initialization lifecycle phase.
 
 # Future Work
 
-- The driver's pod specification should be highly customizable, to the point where users may want to specify a template
-pod spec in a YML file: https://github.com/apache-spark-on-k8s/spark/issues/38
-- The resource staging server can be backed by a distributed file store like HDFS to improve robustness and scalability
-- Additional driver bootstrap steps need to be added to support communication with Kerberized HDFS clusters:
-https://github.com/apache-spark-on-k8s/spark/pull/391
+* The driver's pod specification should be highly customizable, to the point where users may want to specify a template
+pod spec in a YAML file: https://github.com/apache-spark-on-k8s/spark/issues/38.
+* The resource staging server can be backed by a distributed file store like HDFS to improve robustness and scalability.
+* Additional driver bootstrap steps need to be added to support communication with Kerberized HDFS clusters:
+  * https://github.com/apache-spark-on-k8s/spark/pull/391
