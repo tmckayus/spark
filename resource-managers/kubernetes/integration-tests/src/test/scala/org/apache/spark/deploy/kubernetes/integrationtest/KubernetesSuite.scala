@@ -229,7 +229,6 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
         Seq.empty[String])
   }
 
-<<<<<<< HEAD
   test("Setting JVM options on the driver and executors with spaces.") {
     assume(testBackend.name == MINIKUBE_TEST_BACKEND)
     launchStagingServer(SSLOptions(), None)
@@ -250,8 +249,6 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
         Seq.empty[String])
   }
 
-||||||| merged common ancestors
-=======
   test("Submit small local files without the resource staging server.") {
     assume(testBackend.name == MINIKUBE_TEST_BACKEND)
     sparkConf.setJars(Seq(CONTAINER_LOCAL_HELPER_JAR_PATH))
@@ -270,7 +267,6 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       Seq.empty[String])
   }
 
->>>>>>> apache-spark-on-k8s/branch-2.2-kubernetes
   test("Use a very long application name.") {
     assume(testBackend.name == MINIKUBE_TEST_BACKEND)
 
