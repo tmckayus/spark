@@ -37,7 +37,6 @@ private[spark] trait ExecutorPodFactory {
       applicationId: String,
       driverUrl: String,
       executorEnvs: Seq[(String, String)],
-      shuffleServiceConfig: Option[ShuffleServiceConfig],
       driverPod: Pod,
       nodeToLocalTaskCount: Map[String, Int]): Pod
 }
@@ -47,7 +46,8 @@ private[spark] class ExecutorPodFactoryImpl(
     nodeAffinityExecutorPodModifier: NodeAffinityExecutorPodModifier,
     mountSmallFilesBootstrap: Option[MountSmallFilesBootstrap],
     executorInitContainerBootstrap: Option[SparkPodInitContainerBootstrap],
-    executorMountInitContainerSecretPlugin: Option[InitContainerResourceStagingServerSecretPlugin])
+    executorMountInitContainerSecretPlugin: Option[InitContainerResourceStagingServerSecretPlugin],
+    shuffleManager: Option[KubernetesExternalShuffleManager])
   extends ExecutorPodFactory {
 
   import ExecutorPodFactoryImpl._
@@ -111,7 +111,6 @@ private[spark] class ExecutorPodFactoryImpl(
       applicationId: String,
       driverUrl: String,
       executorEnvs: Seq[(String, String)],
-      shuffleServiceConfig: Option[ShuffleServiceConfig],
       driverPod: Pod,
       nodeToLocalTaskCount: Map[String, Int]): Pod = {
     val name = s"$executorPodNamePrefix-exec-$executorId"
@@ -179,6 +178,9 @@ private[spark] class ExecutorPodFactoryImpl(
           .withContainerPort(port._2)
           .build()
       })
+    val shuffleVolumesWithMounts =
+        shuffleManager.map(_.getExecutorShuffleDirVolumesWithMounts)
+            .getOrElse(Seq.empty)
 
     val executorContainer = new ContainerBuilder()
       .withName(s"executor")
@@ -191,6 +193,7 @@ private[spark] class ExecutorPodFactoryImpl(
         .endResources()
       .addAllToEnv(executorEnv.asJava)
       .withPorts(requiredPorts.asJava)
+      .addAllToVolumeMounts(shuffleVolumesWithMounts.map(_._2).asJava)
       .build()
 
     val executorPod = new PodBuilder()
@@ -211,6 +214,7 @@ private[spark] class ExecutorPodFactoryImpl(
         .withHostname(hostname)
         .withRestartPolicy("Never")
         .withNodeSelector(nodeSelector.asJava)
+        .addAllToVolumes(shuffleVolumesWithMounts.map(_._1).asJava)
         .endSpec()
       .build()
 
@@ -225,36 +229,11 @@ private[spark] class ExecutorPodFactoryImpl(
             .endResources()
           .build()
     }.getOrElse(executorContainer)
-
-    val withMaybeShuffleConfigExecutorContainer = shuffleServiceConfig.map { config =>
-      config.shuffleDirs.foldLeft(containerWithExecutorLimitCores) { (container, dir) =>
-        new ContainerBuilder(container)
-          .addNewVolumeMount()
-            .withName(FilenameUtils.getBaseName(dir))
-            .withMountPath(dir)
-            .endVolumeMount()
-          .build()
-      }
-    }.getOrElse(containerWithExecutorLimitCores)
-    val withMaybeShuffleConfigPod = shuffleServiceConfig.map { config =>
-      config.shuffleDirs.foldLeft(executorPod) { (builder, dir) =>
-        new PodBuilder(builder)
-          .editSpec()
-            .addNewVolume()
-              .withName(FilenameUtils.getBaseName(dir))
-              .withNewHostPath()
-                .withPath(dir)
-                .endHostPath()
-              .endVolume()
-            .endSpec()
-          .build()
-      }
-    }.getOrElse(executorPod)
     val (withMaybeSmallFilesMountedPod, withMaybeSmallFilesMountedContainer) =
       mountSmallFilesBootstrap.map { bootstrap =>
         bootstrap.mountSmallFilesSecret(
-            withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer)
-      }.getOrElse((withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer))
+            executorPod, containerWithExecutorLimitCores)
+      }.getOrElse((executorPod, containerWithExecutorLimitCores))
     val (executorPodWithInitContainer, initBootstrappedExecutorContainer) =
       executorInitContainerBootstrap.map { bootstrap =>
         val podWithDetachedInitContainer = bootstrap.bootstrapInitContainerAndVolumes(
