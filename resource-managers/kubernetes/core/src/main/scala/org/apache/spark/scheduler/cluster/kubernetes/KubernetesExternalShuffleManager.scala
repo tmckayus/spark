@@ -75,7 +75,10 @@ private[spark] class KubernetesExternalShuffleManagerImpl(
 
   override def start(appId: String): Unit = {
     // seed the initial cache.
-    val pods = client.pods().inNamespace(shuffleNamespace).withLabels(shufflePodLabels.asJava).list()
+    val pods = client.pods()
+      .inNamespace(shuffleNamespace)
+      .withLabels(shufflePodLabels.asJava)
+      .list()
     pods.getItems.asScala.foreach {
       pod =>
         if (Readiness.isReady(pod)) {
