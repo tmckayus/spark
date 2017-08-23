@@ -22,7 +22,8 @@ import java.io.IOException;
 
 public interface KubernetesExternalShuffleClient extends Closeable {
 
-    void init(String appId);
+  void init(String appId);
 
-    void registerDriverWithShuffleService(String host, int port) throws IOException, InterruptedException;
+  void registerDriverWithShuffleService(String host, int port)
+      throws IOException, InterruptedException;
 }
