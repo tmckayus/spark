@@ -53,6 +53,7 @@ public class KubernetesExternalShuffleClientImpl
     super(conf, secretKeyHolder, saslEnabled);
   }
 
+  @Override
   public void registerDriverWithShuffleService(String host, int port)
       throws IOException, InterruptedException {
     checkInit();
