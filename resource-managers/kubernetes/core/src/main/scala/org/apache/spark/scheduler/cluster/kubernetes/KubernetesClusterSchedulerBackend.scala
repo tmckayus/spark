@@ -19,7 +19,7 @@ package org.apache.spark.scheduler.cluster.kubernetes
 import java.io.Closeable
 import java.net.InetAddress
 import java.util.Collections
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService, TimeUnit}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 
 import io.fabric8.kubernetes.api.model._
@@ -29,7 +29,7 @@ import scala.collection.{concurrent, mutable}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.apache.spark.{SparkContext, SparkEnv, SparkException}
+import org.apache.spark.{SparkEnv, SparkException}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.rpc.{RpcAddress, RpcCallContext, RpcEndpointAddress, RpcEnv}
@@ -40,11 +40,12 @@ import org.apache.spark.util.{ThreadUtils, Utils}
 
 private[spark] class KubernetesClusterSchedulerBackend(
     scheduler: TaskSchedulerImpl,
-    val sc: SparkContext,
+    rpcEnv: RpcEnv,
     executorPodFactory: ExecutorPodFactory,
     shuffleManager: Option[KubernetesExternalShuffleManager],
-    kubernetesClient: KubernetesClient)
-  extends CoarseGrainedSchedulerBackend(scheduler, sc.env.rpcEnv) {
+    kubernetesClient: KubernetesClient,
+    allocatorExecutor: ScheduledExecutorService)
+  extends CoarseGrainedSchedulerBackend(scheduler, rpcEnv) {
 
   import KubernetesClusterSchedulerBackend._
 
@@ -68,7 +69,6 @@ private[spark] class KubernetesClusterSchedulerBackend(
     .get(KUBERNETES_DRIVER_POD_NAME)
     .getOrElse(
       throw new SparkException("Must specify the driver pod name"))
-  private val executorPodNamePrefix = conf.get(KUBERNETES_EXECUTOR_POD_NAME_PREFIX)
 
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
       ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
@@ -93,9 +93,9 @@ private[spark] class KubernetesClusterSchedulerBackend(
   protected var totalExpectedExecutors = new AtomicInteger(0)
 
   private val driverUrl = RpcEndpointAddress(
-    sc.getConf.get("spark.driver.host"),
-    sc.getConf.getInt("spark.driver.port", DEFAULT_DRIVER_PORT),
-    CoarseGrainedSchedulerBackend.ENDPOINT_NAME).toString
+      conf.get("spark.driver.host"),
+      conf.getInt("spark.driver.port", DEFAULT_DRIVER_PORT),
+      CoarseGrainedSchedulerBackend.ENDPOINT_NAME).toString
 
   private val initialExecutors = getInitialTargetExecutorNumber()
 
@@ -108,9 +108,6 @@ private[spark] class KubernetesClusterSchedulerBackend(
   require(podAllocationSize > 0, s"Allocation batch size " +
     s"${KUBERNETES_ALLOCATION_BATCH_SIZE} " +
     s"is ${podAllocationSize}, should be a positive integer")
-
-  private val allocator = ThreadUtils
-    .newDaemonSingleThreadScheduledExecutor("kubernetes-pod-allocator")
 
   private val allocatorRunnable: Runnable = new Runnable {
 
@@ -214,18 +211,18 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .withLabel(SPARK_APP_ID_LABEL, applicationId())
             .watch(new ExecutorPodsWatcher()))
 
-    allocator.scheduleWithFixedDelay(
-      allocatorRunnable, 0, podAllocationInterval, TimeUnit.SECONDS)
+    allocatorExecutor.scheduleWithFixedDelay(
+        allocatorRunnable, 0, podAllocationInterval, TimeUnit.SECONDS)
     shuffleManager.foreach(_.start(applicationId()))
 
-    if (!Utils.isDynamicAllocationEnabled(sc.conf)) {
+    if (!Utils.isDynamicAllocationEnabled(conf)) {
       doRequestTotalExecutors(initialExecutors)
     }
   }
 
   override def stop(): Unit = {
     // stop allocation of new resources and caches.
-    allocator.shutdown()
+    allocatorExecutor.shutdown()
     shuffleManager.foreach(_.stop())
 
     // send stop message to executors so they shut down cleanly
@@ -298,7 +295,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
         executorId,
         applicationId(),
         driverUrl,
-        sc.conf.getExecutorEnv,
+        conf.getExecutorEnv,
         driverPod,
         nodeToLocalTaskCount)
     try {
