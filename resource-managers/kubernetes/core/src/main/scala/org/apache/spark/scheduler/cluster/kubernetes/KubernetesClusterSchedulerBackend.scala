@@ -19,7 +19,7 @@ package org.apache.spark.scheduler.cluster.kubernetes
 import java.io.Closeable
 import java.net.InetAddress
 import java.util.Collections
-import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ExecutorService, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 
 import io.fabric8.kubernetes.api.model._
@@ -36,7 +36,7 @@ import org.apache.spark.rpc.{RpcAddress, RpcCallContext, RpcEndpointAddress, Rpc
 import org.apache.spark.scheduler.{ExecutorExited, SlaveLost, TaskSchedulerImpl}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.{RetrieveSparkAppConfig, SparkAppConfig}
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
-import org.apache.spark.util.{ThreadUtils, Utils}
+import org.apache.spark.util.Utils
 
 private[spark] class KubernetesClusterSchedulerBackend(
     scheduler: TaskSchedulerImpl,
@@ -44,11 +44,13 @@ private[spark] class KubernetesClusterSchedulerBackend(
     executorPodFactory: ExecutorPodFactory,
     shuffleManager: Option[KubernetesExternalShuffleManager],
     kubernetesClient: KubernetesClient,
-    allocatorExecutor: ScheduledExecutorService)
+    allocatorExecutor: ScheduledExecutorService,
+    requestExecutorsService: ExecutorService)
   extends CoarseGrainedSchedulerBackend(scheduler, rpcEnv) {
 
   import KubernetesClusterSchedulerBackend._
 
+  private val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
   private val RUNNING_EXECUTOR_PODS_LOCK = new Object
   // Indexed by executor IDs and guarded by RUNNING_EXECUTOR_PODS_LOCK.
   private val runningExecutorsToPods = new mutable.HashMap[String, Pod]
@@ -71,7 +73,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       throw new SparkException("Must specify the driver pod name"))
 
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
-      ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
+      requestExecutorsService)
 
   private val driverPod = try {
     kubernetesClient.pods().inNamespace(kubernetesNamespace).
@@ -212,7 +214,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .watch(new ExecutorPodsWatcher()))
 
     allocatorExecutor.scheduleWithFixedDelay(
-        allocatorRunnable, 0, podAllocationInterval, TimeUnit.SECONDS)
+        allocatorRunnable, 0L, podAllocationInterval, TimeUnit.SECONDS)
     shuffleManager.foreach(_.start(applicationId()))
 
     if (!Utils.isDynamicAllocationEnabled(conf)) {
@@ -315,11 +317,13 @@ private[spark] class KubernetesClusterSchedulerBackend(
   override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = Future[Boolean] {
     RUNNING_EXECUTOR_PODS_LOCK.synchronized {
       for (executor <- executorIds) {
-        runningExecutorsToPods.remove(executor) match {
-          case Some(pod) =>
-            kubernetesClient.pods().delete(pod)
-            runningPodsToExecutors.remove(pod.getMetadata.getName)
-          case None => logWarning(s"Unable to remove pod for unknown executor $executor")
+        val maybeRemovedExecutor = runningExecutorsToPods.remove(executor)
+        maybeRemovedExecutor.foreach { executorPod =>
+          kubernetesClient.pods().delete(executorPod)
+          runningPodsToExecutors.remove(executorPod.getMetadata.getName)
+        }
+        if (maybeRemovedExecutor.isEmpty) {
+          logWarning(s"Unable to remove pod for unknown executor $executor")
         }
       }
     }
@@ -445,7 +449,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       new PartialFunction[Any, Unit]() {
         override def isDefinedAt(msg: Any): Boolean = {
           msg match {
-            case RetrieveSparkAppConfig(executorId) =>
+            case RetrieveSparkAppConfig(_) =>
               shuffleManager.isDefined
             case _ => false
           }
@@ -475,7 +479,6 @@ private[spark] class KubernetesClusterSchedulerBackend(
 
 private object KubernetesClusterSchedulerBackend {
   private val DEFAULT_STATIC_PORT = 10000
-  private val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
   private val VMEM_EXCEEDED_EXIT_CODE = -103
   private val PMEM_EXCEEDED_EXIT_CODE = -104
   private val UNKNOWN_EXIT_CODE = -111

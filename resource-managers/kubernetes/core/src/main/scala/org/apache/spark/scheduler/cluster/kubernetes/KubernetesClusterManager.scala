@@ -134,13 +134,16 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
         kubernetesShuffleManager)
     val allocatorExecutor = ThreadUtils
         .newDaemonSingleThreadScheduledExecutor("kubernetes-pod-allocator")
+    val requestExecutorsService = ThreadUtils.newDaemonCachedThreadPool(
+        "kubernetes-request-executors")
     new KubernetesClusterSchedulerBackend(
         scheduler.asInstanceOf[TaskSchedulerImpl],
         sc.env.rpcEnv,
         executorPodFactory,
         kubernetesShuffleManager,
         kubernetesClient,
-        allocatorExecutor)
+        allocatorExecutor,
+        requestExecutorsService)
   }
 
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
