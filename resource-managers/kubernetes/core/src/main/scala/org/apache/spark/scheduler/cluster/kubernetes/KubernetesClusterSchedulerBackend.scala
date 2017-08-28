@@ -60,10 +60,10 @@ private[spark] class KubernetesClusterSchedulerBackend(
   private val EXECUTOR_PODS_BY_IPS_LOCK = new Object
   // Indexed by executor IP addrs and guarded by EXECUTOR_PODS_BY_IPS_LOCK
   private val executorPodsByIPs = new mutable.HashMap[String, Pod]
-  private val failedPods: concurrent.Map[String, ExecutorExited] = new
-      ConcurrentHashMap[String, ExecutorExited]().asScala
-  private val executorsToRemove = Collections.newSetFromMap[String](
-    new ConcurrentHashMap[String, java.lang.Boolean]()).asScala
+  private val podsWithKnownExitReasons: concurrent.Map[String, ExecutorExited] =
+      new ConcurrentHashMap[String, ExecutorExited]().asScala
+  private val disconnectedPodsByExecutorIdPendingRemoval =
+      new ConcurrentHashMap[String, Pod]().asScala
 
   private val kubernetesNamespace = conf.get(KUBERNETES_NAMESPACE)
 
@@ -111,18 +111,14 @@ private[spark] class KubernetesClusterSchedulerBackend(
     s"${KUBERNETES_ALLOCATION_BATCH_SIZE} " +
     s"is ${podAllocationSize}, should be a positive integer")
 
-  private val allocatorRunnable: Runnable = new Runnable {
+  private val allocatorRunnable = new Runnable {
 
-    // Number of times we are allowed check for the loss reason for an executor before we give up
-    // and assume the executor failed for good, and attribute it to a framework fault.
-    private val MAX_EXECUTOR_LOST_REASON_CHECKS = 10
-    private val executorsToRecover = new mutable.HashSet[String]
     // Maintains a map of executor id to count of checks performed to learn the loss reason
     // for an executor.
-    private val executorReasonChecks = new mutable.HashMap[String, Int]
+    private val executorReasonCheckAttemptCounts = new mutable.HashMap[String, Int]
 
     override def run(): Unit = {
-      removeFailedExecutors()
+      handleDisconnectedExecutors()
       RUNNING_EXECUTOR_PODS_LOCK.synchronized {
         if (totalRegisteredExecutors.get() < runningExecutorsToPods.size) {
           logDebug("Waiting for pending executors before scaling")
@@ -131,7 +127,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
         } else {
           val nodeToLocalTaskCount = getNodesWithLocalTaskCounts
           for (i <- 0 until math.min(
-            totalExpectedExecutors.get - runningExecutorsToPods.size, podAllocationSize)) {
+              totalExpectedExecutors.get - runningExecutorsToPods.size, podAllocationSize)) {
             val (executorId, pod) = allocateNewExecutorPod(nodeToLocalTaskCount)
             runningExecutorsToPods.put(executorId, pod)
             runningPodsToExecutors.put(pod.getMetadata.getName, executorId)
@@ -142,43 +138,47 @@ private[spark] class KubernetesClusterSchedulerBackend(
       }
     }
 
-    def removeFailedExecutors(): Unit = {
-      val localRunningExecutorsToPods = RUNNING_EXECUTOR_PODS_LOCK.synchronized {
-        runningExecutorsToPods.toMap
-      }
-      executorsToRemove.foreach { case (executorId) =>
-        localRunningExecutorsToPods.get(executorId).map { pod: Pod =>
-          failedPods.get(pod.getMetadata.getName).map { executorExited: ExecutorExited =>
-            logDebug(s"Removing executor $executorId with loss reason " + executorExited.message)
-            removeExecutor(executorId, executorExited)
-            if (!executorExited.exitCausedByApp) {
-              executorsToRecover.add(executorId)
-            }
-          }.getOrElse(removeExecutorOrIncrementLossReasonCheckCount(executorId))
-        }.getOrElse(removeExecutorOrIncrementLossReasonCheckCount(executorId))
-
-        executorsToRecover.foreach(executorId => {
-          executorsToRemove -= executorId
-          executorReasonChecks -= executorId
-          RUNNING_EXECUTOR_PODS_LOCK.synchronized {
-            runningExecutorsToPods.remove(executorId).map { pod: Pod =>
-              kubernetesClient.pods().delete(pod)
-              runningPodsToExecutors.remove(pod.getMetadata.getName)
-            }.getOrElse(logWarning(s"Unable to remove pod for unknown executor $executorId"))
+    def handleDisconnectedExecutors(): Unit = {
+      // For each disconnected executor, synchronize with the loss reasons that may have been found
+      // by the executor pod watcher. If the loss reason was discovered by the watcher,
+      // inform the parent class with removeExecutor.
+      val disconnectedPodsByExecutorIdPendingRemovalCopy =
+          Map.empty ++ disconnectedPodsByExecutorIdPendingRemoval
+      disconnectedPodsByExecutorIdPendingRemovalCopy.foreach { case (executorId, executorPod) =>
+        val knownExitReason = podsWithKnownExitReasons.remove(executorPod.getMetadata.getName)
+        knownExitReason.fold {
+          removeExecutorOrIncrementLossReasonCheckCount(executorId)
+        } { executorExited =>
+          logDebug(s"Removing executor $executorId with loss reason " + executorExited.message)
+          removeExecutor(executorId, executorExited)
+          // We keep around executors that have exit conditions caused by the application. This
+          // allows them to be debugged later on. Otherwise, mark them as to be deleted from the
+          // the API server.
+          if (!executorExited.exitCausedByApp) {
+            deleteExecutorFromApiAndDataStructures(executorId)
           }
-        })
-        executorsToRecover.clear()
+        }
       }
     }
 
     def removeExecutorOrIncrementLossReasonCheckCount(executorId: String): Unit = {
-      val reasonCheckCount = executorReasonChecks.getOrElse(executorId, 0)
-      if (reasonCheckCount > MAX_EXECUTOR_LOST_REASON_CHECKS) {
-        removeExecutor(executorId, SlaveLost("Executor lost for unknown reasons"))
-        executorsToRecover.add(executorId)
-        executorReasonChecks -= executorId
+      val reasonCheckCount = executorReasonCheckAttemptCounts.getOrElse(executorId, 0)
+      if (reasonCheckCount >= MAX_EXECUTOR_LOST_REASON_CHECKS) {
+        removeExecutor(executorId, SlaveLost("Executor lost for unknown reasons."))
+        deleteExecutorFromApiAndDataStructures(executorId)
       } else {
-        executorReasonChecks.put(executorId, reasonCheckCount + 1)
+        executorReasonCheckAttemptCounts.put(executorId, reasonCheckCount + 1)
+      }
+    }
+
+    def deleteExecutorFromApiAndDataStructures(executorId: String): Unit = {
+      disconnectedPodsByExecutorIdPendingRemoval -= executorId
+      executorReasonCheckAttemptCounts -= executorId
+      RUNNING_EXECUTOR_PODS_LOCK.synchronized {
+        runningExecutorsToPods.remove(executorId).map { pod =>
+          kubernetesClient.pods().delete(pod)
+          runningPodsToExecutors.remove(pod.getMetadata.getName)
+        }.getOrElse(logWarning(s"Unable to remove pod for unknown executor $executorId"))
       }
     }
   }
@@ -320,6 +320,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
         val maybeRemovedExecutor = runningExecutorsToPods.remove(executor)
         maybeRemovedExecutor.foreach { executorPod =>
           kubernetesClient.pods().delete(executorPod)
+          disconnectedPodsByExecutorIdPendingRemoval(executor) = executorPod
           runningPodsToExecutors.remove(executorPod.getMetadata.getName)
         }
         if (maybeRemovedExecutor.isEmpty) {
@@ -412,17 +413,24 @@ private[spark] class KubernetesClusterSchedulerBackend(
               // Here we can't be sure that that exit was caused by the application but this seems
               // to be the right default since we know the pod was not explicitly deleted by
               // the user.
-              "Pod exited with following container exit status code " + containerExitStatus
+              s"Pod ${pod.getMetadata.getName}'s executor container exited with exit status" +
+                s" code $containerExitStatus."
           }
           ExecutorExited(containerExitStatus, exitCausedByApp = true, containerExitReason)
         }
-        failedPods.put(pod.getMetadata.getName, exitReason)
+        podsWithKnownExitReasons.put(pod.getMetadata.getName, exitReason)
     }
 
     def handleDeletedPod(pod: Pod): Unit = {
-      val exitReason = ExecutorExited(getExecutorExitStatus(pod), exitCausedByApp = false,
-        "Pod " + pod.getMetadata.getName + " deleted or lost.")
-        failedPods.put(pod.getMetadata.getName, exitReason)
+      val alreadyReleased = isPodAlreadyReleased(pod)
+      val exitMessage = if (alreadyReleased) {
+        s"Container in pod ${pod.getMetadata.getName} exited from explicit termination request."
+      } else {
+        s"Pod ${pod.getMetadata.getName} deleted or lost."
+      }
+      val exitReason = ExecutorExited(
+          getExecutorExitStatus(pod), exitCausedByApp = false, exitMessage)
+      podsWithKnownExitReasons.put(pod.getMetadata.getName, exitReason)
     }
   }
 
@@ -434,12 +442,15 @@ private[spark] class KubernetesClusterSchedulerBackend(
     rpcEnv: RpcEnv,
     sparkProperties: Seq[(String, String)])
     extends DriverEndpoint(rpcEnv, sparkProperties) {
-    private val externalShufflePort = conf.getInt("spark.shuffle.service.port", 7337)
 
     override def onDisconnected(rpcAddress: RpcAddress): Unit = {
       addressToExecutorId.get(rpcAddress).foreach { executorId =>
         if (disableExecutor(executorId)) {
-            executorsToRemove.add(executorId)
+          RUNNING_EXECUTOR_PODS_LOCK.synchronized {
+            runningExecutorsToPods.get(executorId).foreach { pod =>
+              disconnectedPodsByExecutorIdPendingRemoval(executorId) = pod
+            }
+          }
         }
       }
     }
@@ -478,10 +489,12 @@ private[spark] class KubernetesClusterSchedulerBackend(
 }
 
 private object KubernetesClusterSchedulerBackend {
-  private val DEFAULT_STATIC_PORT = 10000
   private val VMEM_EXCEEDED_EXIT_CODE = -103
   private val PMEM_EXCEEDED_EXIT_CODE = -104
   private val UNKNOWN_EXIT_CODE = -111
+  // Number of times we are allowed check for the loss reason for an executor before we give up
+  // and assume the executor failed for good, and attribute it to a framework fault.
+  val MAX_EXECUTOR_LOST_REASON_CHECKS = 10
 
   def memLimitExceededLogMessage(diagnostics: String): String = {
     s"Pod/Container killed for exceeding memory limits. $diagnostics" +

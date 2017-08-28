@@ -20,20 +20,22 @@ import java.util.concurrent.{ExecutorService, ScheduledExecutorService, TimeUnit
 
 import io.fabric8.kubernetes.api.model.{DoneablePod, Pod, PodBuilder, PodList}
 import io.fabric8.kubernetes.client.{KubernetesClient, Watch, Watcher}
+import io.fabric8.kubernetes.client.Watcher.Action
 import io.fabric8.kubernetes.client.dsl.{FilterWatchListDeletable, MixedOperation, NonNamespaceOperation, PodResource}
 import org.mockito.{AdditionalAnswers, ArgumentCaptor, Mock, MockitoAnnotations}
 import org.mockito.Matchers.{any, eq => mockitoEq}
-import org.mockito.Mockito.{doNothing, never, verify, when}
+import org.mockito.Mockito.{doNothing, never, times, verify, when}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.mock.MockitoSugar._
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkContext, SparkFunSuite}
 import org.apache.spark.deploy.kubernetes.config._
 import org.apache.spark.deploy.kubernetes.constants._
-import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointAddress, RpcEndpointRef, RpcEnv}
-import org.apache.spark.scheduler.{LiveListenerBus, TaskSchedulerImpl}
-import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RegisterExecutor
+import org.apache.spark.rpc.{RpcAddress, RpcCallContext, RpcEndpoint, RpcEndpointAddress, RpcEndpointRef, RpcEnv, RpcTimeout}
+import org.apache.spark.scheduler.{ExecutorExited, LiveListenerBus, SlaveLost, TaskSchedulerImpl}
+import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.{RegisterExecutor, RemoveExecutor}
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 
 private[spark] class KubernetesClusterSchedulerBackendSuite
@@ -47,6 +49,28 @@ private[spark] class KubernetesClusterSchedulerBackendSuite
   private val POD_ALLOCATION_INTERVAL = 60L
   private val DRIVER_URL = RpcEndpointAddress(
       SPARK_DRIVER_HOST, SPARK_DRIVER_PORT, CoarseGrainedSchedulerBackend.ENDPOINT_NAME).toString
+  private val FIRST_EXECUTOR_POD = new PodBuilder()
+    .withNewMetadata()
+      .withName("pod1")
+      .endMetadata()
+    .withNewSpec()
+      .withNodeName("node1")
+      .endSpec()
+    .withNewStatus()
+      .withHostIP("192.168.99.100")
+      .endStatus()
+    .build()
+  private val SECOND_EXECUTOR_POD = new PodBuilder()
+    .withNewMetadata()
+      .withName("pod2")
+      .endMetadata()
+    .withNewSpec()
+      .withNodeName("node2")
+      .endSpec()
+    .withNewStatus()
+      .withHostIP("192.168.99.101")
+      .endStatus()
+    .build()
 
   private type PODS = MixedOperation[Pod, PodList, DoneablePod, PodResource[Pod, DoneablePod]]
   private type LABELLED_PODS = FilterWatchListDeletable[
@@ -147,6 +171,9 @@ private[spark] class KubernetesClusterSchedulerBackendSuite
     when(rpcEnv.setupEndpoint(
         mockitoEq(CoarseGrainedSchedulerBackend.ENDPOINT_NAME), driverEndpoint.capture()))
         .thenReturn(driverEndpointRef)
+    when(driverEndpointRef.ask[Boolean]
+      (any(classOf[Any]))
+      (any())).thenReturn(mock[Future[Boolean]])
   }
 
   test("Basic lifecycle expectations when starting and stopping the scheduler.") {
@@ -167,37 +194,12 @@ private[spark] class KubernetesClusterSchedulerBackendSuite
     val scheduler = newSchedulerBackend(true)
     scheduler.start()
     requestExecutorRunnable.getValue.run()
-    val firstExecutorPod = new PodBuilder()
-      .withNewMetadata()
-        .withName("pod1")
-        .endMetadata()
-      .build()
-    val secondExecutorPod = new PodBuilder()
-      .withNewMetadata()
-        .withName("pod2")
-        .endMetadata()
-      .build()
-    when(podOperations.create(firstExecutorPod))
-        .thenReturn(firstExecutorPod)
-    when(podOperations.create(secondExecutorPod))
-      .thenReturn(secondExecutorPod)
-    when(executorPodFactory.createExecutorPod(
-        "1",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(firstExecutorPod)
-    when(executorPodFactory.createExecutorPod(
-        "2",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(secondExecutorPod)
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    expectPodCreationWithId(2, SECOND_EXECUTOR_POD)
+    when(podOperations.create(any(classOf[Pod]))).thenAnswer(AdditionalAnswers.returnsFirstArg())
     allocatorRunnable.getValue.run()
-    verify(podOperations).create(firstExecutorPod)
-    verify(podOperations).create(secondExecutorPod)
+    verify(podOperations).create(FIRST_EXECUTOR_POD)
+    verify(podOperations).create(SECOND_EXECUTOR_POD)
   }
 
   test("Killing executors deletes the executor pods") {
@@ -207,82 +209,140 @@ private[spark] class KubernetesClusterSchedulerBackendSuite
     val scheduler = newSchedulerBackend(true)
     scheduler.start()
     requestExecutorRunnable.getValue.run()
-    val firstExecutorPod = new PodBuilder()
-      .withNewMetadata()
-      .withName("pod1")
-      .endMetadata()
-      .build()
-    val secondExecutorPod = new PodBuilder()
-      .withNewMetadata()
-      .withName("pod2")
-      .endMetadata()
-      .build()
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    expectPodCreationWithId(2, SECOND_EXECUTOR_POD)
     when(podOperations.create(any(classOf[Pod])))
         .thenAnswer(AdditionalAnswers.returnsFirstArg())
-    when(executorPodFactory.createExecutorPod(
-        "1",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(firstExecutorPod)
-    when(executorPodFactory.createExecutorPod(
-        "2",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(secondExecutorPod)
     allocatorRunnable.getValue.run()
-    scheduler.doKillExecutors(Seq("1", "2"))
+    scheduler.doKillExecutors(Seq("2"))
     requestExecutorRunnable.getAllValues.asScala.last.run()
-    verify(podOperations).delete(firstExecutorPod)
-    verify(podOperations).delete(secondExecutorPod)
+    verify(podOperations).delete(SECOND_EXECUTOR_POD)
+    verify(podOperations, never()).delete(FIRST_EXECUTOR_POD)
   }
 
   test("Executors should be requested in batches.") {
     sparkConf
-      .set(KUBERNETES_ALLOCATION_BATCH_SIZE, 1)
-      .set(org.apache.spark.internal.config.EXECUTOR_INSTANCES, 2)
+        .set(KUBERNETES_ALLOCATION_BATCH_SIZE, 1)
+        .set(org.apache.spark.internal.config.EXECUTOR_INSTANCES, 2)
     val scheduler = newSchedulerBackend(true)
     scheduler.start()
     requestExecutorRunnable.getValue.run()
-    val firstExecutorPod = new PodBuilder()
-      .withNewMetadata()
-      .withName("pod1")
-      .endMetadata()
-      .build()
-    val secondExecutorPod = new PodBuilder()
-      .withNewMetadata()
-      .withName("pod2")
-      .endMetadata()
-      .build()
     when(podOperations.create(any(classOf[Pod])))
       .thenAnswer(AdditionalAnswers.returnsFirstArg())
-    when(executorPodFactory.createExecutorPod(
-        "1",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(firstExecutorPod)
-    when(executorPodFactory.createExecutorPod(
-        "2",
-        APP_ID,
-        DRIVER_URL,
-        sparkConf.getExecutorEnv,
-        driverPod,
-        Map.empty)).thenReturn(secondExecutorPod)
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    expectPodCreationWithId(2, SECOND_EXECUTOR_POD)
     allocatorRunnable.getValue.run()
-    verify(podOperations).create(firstExecutorPod)
-    verify(podOperations, never()).create(secondExecutorPod)
+    verify(podOperations).create(FIRST_EXECUTOR_POD)
+    verify(podOperations, never()).create(SECOND_EXECUTOR_POD)
     val registerFirstExecutorMessage = RegisterExecutor(
         "1", mock[RpcEndpointRef], "localhost", 1, Map.empty[String, String])
     when(taskSchedulerImpl.resourceOffers(any())).thenReturn(Seq.empty)
     driverEndpoint.getValue.receiveAndReply(mock[RpcCallContext])
         .apply(registerFirstExecutorMessage)
     allocatorRunnable.getValue.run()
-    verify(podOperations).create(secondExecutorPod)
+    verify(podOperations).create(SECOND_EXECUTOR_POD)
+  }
+
+  test("Deleting executors and then running an allocator pass after finding the loss reason" +
+      " should only delete the pod once.") {
+    sparkConf
+        .set(KUBERNETES_ALLOCATION_BATCH_SIZE, 1)
+        .set(org.apache.spark.internal.config.EXECUTOR_INSTANCES, 1)
+    val scheduler = newSchedulerBackend(true)
+    scheduler.start()
+    requestExecutorRunnable.getValue.run()
+    when(podOperations.create(any(classOf[Pod])))
+        .thenAnswer(AdditionalAnswers.returnsFirstArg())
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    allocatorRunnable.getValue.run()
+    val executorEndpointRef = mock[RpcEndpointRef]
+    when(executorEndpointRef.address).thenReturn(RpcAddress("pod.example.com", 9000))
+    val registerFirstExecutorMessage = RegisterExecutor(
+        "1", executorEndpointRef, "localhost:9000", 1, Map.empty[String, String])
+    when(taskSchedulerImpl.resourceOffers(any())).thenReturn(Seq.empty)
+    driverEndpoint.getValue.receiveAndReply(mock[RpcCallContext])
+        .apply(registerFirstExecutorMessage)
+    scheduler.doRequestTotalExecutors(0)
+    requestExecutorRunnable.getAllValues.asScala.last.run()
+    scheduler.doKillExecutors(Seq("1"))
+    requestExecutorRunnable.getAllValues.asScala.last.run()
+    verify(podOperations, times(1)).delete(FIRST_EXECUTOR_POD)
+    driverEndpoint.getValue.onDisconnected(executorEndpointRef.address)
+
+    val exitedPod = exitPod(FIRST_EXECUTOR_POD, 0)
+    executorPodsWatcherArgument.getValue.eventReceived(Action.DELETED, exitedPod)
+    allocatorRunnable.getValue.run()
+    verify(podOperations, times(1)).delete(FIRST_EXECUTOR_POD)
+    verify(driverEndpointRef, times(1)).ask[Boolean](
+        RemoveExecutor("1", ExecutorExited(
+            0,
+            exitCausedByApp = false,
+            s"Container in pod ${exitedPod.getMetadata.getName} exited from" +
+              s" explicit termination request.")))
+  }
+
+  test("Executors that disconnect from application errors are noted as exits caused by app.") {
+    sparkConf
+        .set(KUBERNETES_ALLOCATION_BATCH_SIZE, 1)
+        .set(org.apache.spark.internal.config.EXECUTOR_INSTANCES, 1)
+    val scheduler = newSchedulerBackend(true)
+    scheduler.start()
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    when(podOperations.create(any(classOf[Pod]))).thenAnswer(AdditionalAnswers.returnsFirstArg())
+    requestExecutorRunnable.getValue.run()
+    allocatorRunnable.getValue.run()
+    val executorEndpointRef = mock[RpcEndpointRef]
+    when(executorEndpointRef.address).thenReturn(RpcAddress("pod.example.com", 9000))
+    val registerFirstExecutorMessage = RegisterExecutor(
+        "1", executorEndpointRef, "localhost:9000", 1, Map.empty[String, String])
+    when(taskSchedulerImpl.resourceOffers(any())).thenReturn(Seq.empty)
+    driverEndpoint.getValue.receiveAndReply(mock[RpcCallContext])
+        .apply(registerFirstExecutorMessage)
+    driverEndpoint.getValue.onDisconnected(executorEndpointRef.address)
+    executorPodsWatcherArgument.getValue.eventReceived(
+        Action.ERROR, exitPod(FIRST_EXECUTOR_POD, 1))
+
+    expectPodCreationWithId(2, SECOND_EXECUTOR_POD)
+    scheduler.doRequestTotalExecutors(1)
+    requestExecutorRunnable.getValue.run()
+    allocatorRunnable.getAllValues.asScala.last.run()
+    verify(driverEndpointRef).ask[Boolean](
+        RemoveExecutor("1", ExecutorExited(
+            1,
+            exitCausedByApp = true,
+            s"Pod ${FIRST_EXECUTOR_POD.getMetadata.getName}'s executor container exited with" +
+              " exit status code 1.")))
+    verify(podOperations, never()).delete(FIRST_EXECUTOR_POD)
+  }
+
+  test("Executors should only try to get the loss reason a number of times before giving up and" +
+    " removing the executor.") {
+    sparkConf
+        .set(KUBERNETES_ALLOCATION_BATCH_SIZE, 1)
+        .set(org.apache.spark.internal.config.EXECUTOR_INSTANCES, 1)
+    val scheduler = newSchedulerBackend(true)
+    scheduler.start()
+    expectPodCreationWithId(1, FIRST_EXECUTOR_POD)
+    when(podOperations.create(any(classOf[Pod]))).thenAnswer(AdditionalAnswers.returnsFirstArg())
+    requestExecutorRunnable.getValue.run()
+    allocatorRunnable.getValue.run()
+    val executorEndpointRef = mock[RpcEndpointRef]
+    when(executorEndpointRef.address).thenReturn(RpcAddress("pod.example.com", 9000))
+    val registerFirstExecutorMessage = RegisterExecutor(
+        "1", executorEndpointRef, "localhost:9000", 1, Map.empty[String, String])
+    when(taskSchedulerImpl.resourceOffers(any())).thenReturn(Seq.empty)
+    driverEndpoint.getValue.receiveAndReply(mock[RpcCallContext])
+        .apply(registerFirstExecutorMessage)
+    driverEndpoint.getValue.onDisconnected(executorEndpointRef.address)
+    1 to KubernetesClusterSchedulerBackend.MAX_EXECUTOR_LOST_REASON_CHECKS foreach { _ =>
+      allocatorRunnable.getValue.run()
+      verify(podOperations, never()).delete(FIRST_EXECUTOR_POD)
+    }
+    expectPodCreationWithId(2, SECOND_EXECUTOR_POD)
+    allocatorRunnable.getValue.run()
+    verify(podOperations).delete(FIRST_EXECUTOR_POD)
+    verify(driverEndpointRef).ask[Boolean](
+      RemoveExecutor("1", SlaveLost("Executor lost for unknown reasons.")))
   }
 
   private def newSchedulerBackend(externalShuffle: Boolean): KubernetesClusterSchedulerBackend = {
@@ -294,6 +354,30 @@ private[spark] class KubernetesClusterSchedulerBackendSuite
         kubernetesClient,
         allocatorExecutor,
         requestExecutorsService)
+  }
+
+  private def exitPod(basePod: Pod, exitCode: Int): Pod = {
+    new PodBuilder(FIRST_EXECUTOR_POD)
+      .editStatus()
+        .addNewContainerStatus()
+          .withNewState()
+            .withNewTerminated()
+              .withExitCode(exitCode)
+              .endTerminated()
+            .endState()
+          .endContainerStatus()
+        .endStatus()
+      .build()
+  }
+
+  private def expectPodCreationWithId(executorId: Int, expectedPod: Pod): Unit = {
+    when(executorPodFactory.createExecutorPod(
+        executorId.toString,
+        APP_ID,
+        DRIVER_URL,
+        sparkConf.getExecutorEnv,
+        driverPod,
+        Map.empty)).thenReturn(expectedPod)
   }
 
 }
