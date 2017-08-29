@@ -142,7 +142,7 @@ private[spark] class KubernetesExternalShuffleManagerImpl(
   override def getExecutorShuffleDirVolumesWithMounts(): Seq[(Volume, VolumeMount)] = {
     shuffleDirs.zipWithIndex.map {
       case (shuffleDir, shuffleDirIndex) =>
-        val volumeName = s"${FilenameUtils.getBaseName(shuffleDir)}-$shuffleDirIndex}"
+        val volumeName = s"$shuffleDirIndex-${FilenameUtils.getBaseName(shuffleDir)}"
         val volume = new VolumeBuilder()
           .withName(volumeName)
           .withNewHostPath(shuffleDir)
