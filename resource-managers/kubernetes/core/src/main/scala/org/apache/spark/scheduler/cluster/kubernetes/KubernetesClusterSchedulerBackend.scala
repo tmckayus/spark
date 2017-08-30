@@ -76,6 +76,38 @@ private[spark] class KubernetesClusterSchedulerBackend(
       throw new SparkException("Must specify the driver pod name"))
   private val executorPodNamePrefix = conf.get(KUBERNETES_EXECUTOR_POD_NAME_PREFIX)
 
+<<<<<<< HEAD
+||||||| merged common ancestors
+  private val executorMemoryMb = conf.get(org.apache.spark.internal.config.EXECUTOR_MEMORY)
+  private val executorMemoryString = conf.get(
+    org.apache.spark.internal.config.EXECUTOR_MEMORY.key,
+    org.apache.spark.internal.config.EXECUTOR_MEMORY.defaultValueString)
+
+  private val memoryOverheadMb = conf
+    .get(KUBERNETES_EXECUTOR_MEMORY_OVERHEAD)
+    .getOrElse(math.max((MEMORY_OVERHEAD_FACTOR * executorMemoryMb).toInt,
+      MEMORY_OVERHEAD_MIN))
+  private val executorMemoryWithOverhead = executorMemoryMb + memoryOverheadMb
+
+  private val executorCores = conf.getDouble("spark.executor.cores", 1d)
+  private val executorLimitCores = conf.getOption(KUBERNETES_EXECUTOR_LIMIT_CORES.key)
+
+=======
+  private val executorMemoryMiB = conf.get(org.apache.spark.internal.config.EXECUTOR_MEMORY)
+  private val executorMemoryString = conf.get(
+    org.apache.spark.internal.config.EXECUTOR_MEMORY.key,
+    org.apache.spark.internal.config.EXECUTOR_MEMORY.defaultValueString)
+
+  private val memoryOverheadMiB = conf
+    .get(KUBERNETES_EXECUTOR_MEMORY_OVERHEAD)
+    .getOrElse(math.max((MEMORY_OVERHEAD_FACTOR * executorMemoryMiB).toInt,
+      MEMORY_OVERHEAD_MIN_MIB))
+  private val executorMemoryWithOverheadMiB = executorMemoryMiB + memoryOverheadMiB
+
+  private val executorCores = conf.getDouble("spark.executor.cores", 1d)
+  private val executorLimitCores = conf.getOption(KUBERNETES_EXECUTOR_LIMIT_CORES.key)
+
+>>>>>>> origin/branch-2.2-kubernetes
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
       ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
 
@@ -344,6 +376,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
    */
   private def allocateNewExecutorPod(nodeToLocalTaskCount: Map[String, Int]): (String, Pod) = {
     val executorId = EXECUTOR_ID_COUNTER.incrementAndGet().toString
+<<<<<<< HEAD
     val executorPod = executorPodFactory.createExecutorPod(
         executorId,
         applicationId(),
@@ -352,6 +385,351 @@ private[spark] class KubernetesClusterSchedulerBackend(
         shuffleServiceConfig,
         driverPod,
         nodeToLocalTaskCount)
+||||||| merged common ancestors
+    val name = s"$executorPodNamePrefix-exec-$executorId"
+
+    // hostname must be no longer than 63 characters, so take the last 63 characters of the pod
+    // name as the hostname.  This preserves uniqueness since the end of name contains
+    // executorId and applicationId
+    val hostname = name.substring(Math.max(0, name.length - 63))
+    val resolvedExecutorLabels = Map(
+      SPARK_EXECUTOR_ID_LABEL -> executorId,
+      SPARK_APP_ID_LABEL -> applicationId(),
+      SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE) ++
+      executorLabels
+    val executorMemoryQuantity = new QuantityBuilder(false)
+      .withAmount(s"${executorMemoryMb}M")
+      .build()
+    val executorMemoryLimitQuantity = new QuantityBuilder(false)
+      .withAmount(s"${executorMemoryWithOverhead}M")
+      .build()
+    val executorCpuQuantity = new QuantityBuilder(false)
+      .withAmount(executorCores.toString)
+      .build()
+    val executorExtraClasspathEnv = executorExtraClasspath.map { cp =>
+      new EnvVarBuilder()
+        .withName(ENV_EXECUTOR_EXTRA_CLASSPATH)
+        .withValue(cp)
+        .build()
+    }
+    val executorExtraJavaOptionsEnv = conf
+        .get(org.apache.spark.internal.config.EXECUTOR_JAVA_OPTIONS)
+        .map { opts =>
+          val delimitedOpts = Utils.splitCommandString(opts)
+          delimitedOpts.zipWithIndex.map {
+            case (opt, index) =>
+              new EnvVarBuilder().withName(s"$ENV_JAVA_OPT_PREFIX$index").withValue(opt).build()
+          }
+        }.getOrElse(Seq.empty[EnvVar])
+    val executorEnv = (Seq(
+      (ENV_EXECUTOR_PORT, executorPort.toString),
+      (ENV_DRIVER_URL, driverUrl),
+      // Executor backend expects integral value for executor cores, so round it up to an int.
+      (ENV_EXECUTOR_CORES, math.ceil(executorCores).toInt.toString),
+      (ENV_EXECUTOR_MEMORY, executorMemoryString),
+      (ENV_APPLICATION_ID, applicationId()),
+      (ENV_EXECUTOR_ID, executorId),
+      (ENV_MOUNTED_CLASSPATH, s"$executorJarsDownloadDir/*")) ++ sc.executorEnvs.toSeq)
+      .map(env => new EnvVarBuilder()
+        .withName(env._1)
+        .withValue(env._2)
+        .build()
+      ) ++ Seq(
+      new EnvVarBuilder()
+        .withName(ENV_EXECUTOR_POD_IP)
+        .withValueFrom(new EnvVarSourceBuilder()
+          .withNewFieldRef("v1", "status.podIP")
+          .build())
+        .build()
+      ) ++ executorExtraJavaOptionsEnv ++ executorExtraClasspathEnv.toSeq
+    val requiredPorts = Seq(
+      (EXECUTOR_PORT_NAME, executorPort),
+      (BLOCK_MANAGER_PORT_NAME, blockmanagerPort))
+      .map(port => {
+        new ContainerPortBuilder()
+          .withName(port._1)
+          .withContainerPort(port._2)
+          .build()
+      })
+
+    val executorContainer = new ContainerBuilder()
+      .withName(s"executor")
+      .withImage(executorDockerImage)
+      .withImagePullPolicy(dockerImagePullPolicy)
+      .withNewResources()
+        .addToRequests("memory", executorMemoryQuantity)
+        .addToLimits("memory", executorMemoryLimitQuantity)
+        .addToRequests("cpu", executorCpuQuantity)
+      .endResources()
+      .addAllToEnv(executorEnv.asJava)
+      .withPorts(requiredPorts.asJava)
+      .build()
+
+    val executorPod = new PodBuilder()
+      .withNewMetadata()
+        .withName(name)
+        .withLabels(resolvedExecutorLabels.asJava)
+        .withAnnotations(executorAnnotations.asJava)
+        .withOwnerReferences()
+        .addNewOwnerReference()
+          .withController(true)
+          .withApiVersion(driverPod.getApiVersion)
+          .withKind(driverPod.getKind)
+          .withName(driverPod.getMetadata.getName)
+          .withUid(driverPod.getMetadata.getUid)
+        .endOwnerReference()
+      .endMetadata()
+      .withNewSpec()
+        .withHostname(hostname)
+        .withRestartPolicy("Never")
+        .withNodeSelector(nodeSelector.asJava)
+      .endSpec()
+      .build()
+
+    val containerWithExecutorLimitCores = executorLimitCores.map {
+      limitCores =>
+        val executorCpuLimitQuantity = new QuantityBuilder(false)
+          .withAmount(limitCores)
+          .build()
+        new ContainerBuilder(executorContainer)
+          .editResources()
+            .addToLimits("cpu", executorCpuLimitQuantity)
+            .endResources()
+          .build()
+    }.getOrElse(executorContainer)
+
+    val withMaybeShuffleConfigExecutorContainer = shuffleServiceConfig.map { config =>
+      config.shuffleDirs.foldLeft(containerWithExecutorLimitCores) { (container, dir) =>
+        new ContainerBuilder(container)
+          .addNewVolumeMount()
+            .withName(FilenameUtils.getBaseName(dir))
+            .withMountPath(dir)
+            .endVolumeMount()
+          .build()
+      }
+    }.getOrElse(containerWithExecutorLimitCores)
+    val withMaybeShuffleConfigPod = shuffleServiceConfig.map { config =>
+      config.shuffleDirs.foldLeft(executorPod) { (builder, dir) =>
+        new PodBuilder(builder)
+          .editSpec()
+            .addNewVolume()
+              .withName(FilenameUtils.getBaseName(dir))
+              .withNewHostPath()
+                .withPath(dir)
+                .endHostPath()
+              .endVolume()
+            .endSpec()
+          .build()
+      }
+    }.getOrElse(executorPod)
+    val (withMaybeSmallFilesMountedPod, withMaybeSmallFilesMountedContainer) =
+        mountSmallFilesBootstrap.map { bootstrap =>
+          bootstrap.mountSmallFilesSecret(
+            withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer)
+        }.getOrElse((withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer))
+    val (executorPodWithInitContainer, initBootstrappedExecutorContainer) =
+        executorInitContainerBootstrap.map { bootstrap =>
+          val podWithDetachedInitContainer = bootstrap.bootstrapInitContainerAndVolumes(
+              PodWithDetachedInitContainer(
+                  withMaybeSmallFilesMountedPod,
+                  new ContainerBuilder().build(),
+                withMaybeSmallFilesMountedContainer))
+
+          val resolvedInitContainer = executorMountInitContainerSecretPlugin.map { plugin =>
+            plugin.mountResourceStagingServerSecretIntoInitContainer(
+                podWithDetachedInitContainer.initContainer)
+          }.getOrElse(podWithDetachedInitContainer.initContainer)
+
+          val podWithAttachedInitContainer = InitContainerUtil.appendInitContainer(
+              podWithDetachedInitContainer.pod, resolvedInitContainer)
+
+          val resolvedPodWithMountedSecret = executorMountInitContainerSecretPlugin.map { plugin =>
+            plugin.addResourceStagingServerSecretVolumeToPod(podWithAttachedInitContainer)
+          }.getOrElse(podWithAttachedInitContainer)
+
+          (resolvedPodWithMountedSecret, podWithDetachedInitContainer.mainContainer)
+      }.getOrElse((withMaybeSmallFilesMountedPod, withMaybeSmallFilesMountedContainer))
+
+    val executorPodWithNodeAffinity = addNodeAffinityAnnotationIfUseful(
+        executorPodWithInitContainer, nodeToLocalTaskCount)
+    val resolvedExecutorPod = new PodBuilder(executorPodWithNodeAffinity)
+      .editSpec()
+        .addToContainers(initBootstrappedExecutorContainer)
+        .endSpec()
+      .build()
+=======
+    val name = s"$executorPodNamePrefix-exec-$executorId"
+
+    // hostname must be no longer than 63 characters, so take the last 63 characters of the pod
+    // name as the hostname.  This preserves uniqueness since the end of name contains
+    // executorId and applicationId
+    val hostname = name.substring(Math.max(0, name.length - 63))
+    val resolvedExecutorLabels = Map(
+      SPARK_EXECUTOR_ID_LABEL -> executorId,
+      SPARK_APP_ID_LABEL -> applicationId(),
+      SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE) ++
+      executorLabels
+    val executorMemoryQuantity = new QuantityBuilder(false)
+      .withAmount(s"${executorMemoryMiB}Mi")
+      .build()
+    val executorMemoryLimitQuantity = new QuantityBuilder(false)
+      .withAmount(s"${executorMemoryWithOverheadMiB}Mi")
+      .build()
+    val executorCpuQuantity = new QuantityBuilder(false)
+      .withAmount(executorCores.toString)
+      .build()
+    val executorExtraClasspathEnv = executorExtraClasspath.map { cp =>
+      new EnvVarBuilder()
+        .withName(ENV_EXECUTOR_EXTRA_CLASSPATH)
+        .withValue(cp)
+        .build()
+    }
+    val executorExtraJavaOptionsEnv = conf
+        .get(org.apache.spark.internal.config.EXECUTOR_JAVA_OPTIONS)
+        .map { opts =>
+          val delimitedOpts = Utils.splitCommandString(opts)
+          delimitedOpts.zipWithIndex.map {
+            case (opt, index) =>
+              new EnvVarBuilder().withName(s"$ENV_JAVA_OPT_PREFIX$index").withValue(opt).build()
+          }
+        }.getOrElse(Seq.empty[EnvVar])
+    val executorEnv = (Seq(
+      (ENV_EXECUTOR_PORT, executorPort.toString),
+      (ENV_DRIVER_URL, driverUrl),
+      // Executor backend expects integral value for executor cores, so round it up to an int.
+      (ENV_EXECUTOR_CORES, math.ceil(executorCores).toInt.toString),
+      (ENV_EXECUTOR_MEMORY, executorMemoryString),
+      (ENV_APPLICATION_ID, applicationId()),
+      (ENV_EXECUTOR_ID, executorId),
+      (ENV_MOUNTED_CLASSPATH, s"$executorJarsDownloadDir/*")) ++ sc.executorEnvs.toSeq)
+      .map(env => new EnvVarBuilder()
+        .withName(env._1)
+        .withValue(env._2)
+        .build()
+      ) ++ Seq(
+      new EnvVarBuilder()
+        .withName(ENV_EXECUTOR_POD_IP)
+        .withValueFrom(new EnvVarSourceBuilder()
+          .withNewFieldRef("v1", "status.podIP")
+          .build())
+        .build()
+      ) ++ executorExtraJavaOptionsEnv ++ executorExtraClasspathEnv.toSeq
+    val requiredPorts = Seq(
+      (EXECUTOR_PORT_NAME, executorPort),
+      (BLOCK_MANAGER_PORT_NAME, blockmanagerPort))
+      .map(port => {
+        new ContainerPortBuilder()
+          .withName(port._1)
+          .withContainerPort(port._2)
+          .build()
+      })
+
+    val executorContainer = new ContainerBuilder()
+      .withName(s"executor")
+      .withImage(executorDockerImage)
+      .withImagePullPolicy(dockerImagePullPolicy)
+      .withNewResources()
+        .addToRequests("memory", executorMemoryQuantity)
+        .addToLimits("memory", executorMemoryLimitQuantity)
+        .addToRequests("cpu", executorCpuQuantity)
+      .endResources()
+      .addAllToEnv(executorEnv.asJava)
+      .withPorts(requiredPorts.asJava)
+      .build()
+
+    val executorPod = new PodBuilder()
+      .withNewMetadata()
+        .withName(name)
+        .withLabels(resolvedExecutorLabels.asJava)
+        .withAnnotations(executorAnnotations.asJava)
+        .withOwnerReferences()
+        .addNewOwnerReference()
+          .withController(true)
+          .withApiVersion(driverPod.getApiVersion)
+          .withKind(driverPod.getKind)
+          .withName(driverPod.getMetadata.getName)
+          .withUid(driverPod.getMetadata.getUid)
+        .endOwnerReference()
+      .endMetadata()
+      .withNewSpec()
+        .withHostname(hostname)
+        .withRestartPolicy("Never")
+        .withNodeSelector(nodeSelector.asJava)
+      .endSpec()
+      .build()
+
+    val containerWithExecutorLimitCores = executorLimitCores.map {
+      limitCores =>
+        val executorCpuLimitQuantity = new QuantityBuilder(false)
+          .withAmount(limitCores)
+          .build()
+        new ContainerBuilder(executorContainer)
+          .editResources()
+            .addToLimits("cpu", executorCpuLimitQuantity)
+            .endResources()
+          .build()
+    }.getOrElse(executorContainer)
+
+    val withMaybeShuffleConfigExecutorContainer = shuffleServiceConfig.map { config =>
+      config.shuffleDirs.foldLeft(containerWithExecutorLimitCores) { (container, dir) =>
+        new ContainerBuilder(container)
+          .addNewVolumeMount()
+            .withName(FilenameUtils.getBaseName(dir))
+            .withMountPath(dir)
+            .endVolumeMount()
+          .build()
+      }
+    }.getOrElse(containerWithExecutorLimitCores)
+    val withMaybeShuffleConfigPod = shuffleServiceConfig.map { config =>
+      config.shuffleDirs.foldLeft(executorPod) { (builder, dir) =>
+        new PodBuilder(builder)
+          .editSpec()
+            .addNewVolume()
+              .withName(FilenameUtils.getBaseName(dir))
+              .withNewHostPath()
+                .withPath(dir)
+                .endHostPath()
+              .endVolume()
+            .endSpec()
+          .build()
+      }
+    }.getOrElse(executorPod)
+    val (withMaybeSmallFilesMountedPod, withMaybeSmallFilesMountedContainer) =
+        mountSmallFilesBootstrap.map { bootstrap =>
+          bootstrap.mountSmallFilesSecret(
+            withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer)
+        }.getOrElse((withMaybeShuffleConfigPod, withMaybeShuffleConfigExecutorContainer))
+    val (executorPodWithInitContainer, initBootstrappedExecutorContainer) =
+        executorInitContainerBootstrap.map { bootstrap =>
+          val podWithDetachedInitContainer = bootstrap.bootstrapInitContainerAndVolumes(
+              PodWithDetachedInitContainer(
+                  withMaybeSmallFilesMountedPod,
+                  new ContainerBuilder().build(),
+                withMaybeSmallFilesMountedContainer))
+
+          val resolvedInitContainer = executorMountInitContainerSecretPlugin.map { plugin =>
+            plugin.mountResourceStagingServerSecretIntoInitContainer(
+                podWithDetachedInitContainer.initContainer)
+          }.getOrElse(podWithDetachedInitContainer.initContainer)
+
+          val podWithAttachedInitContainer = InitContainerUtil.appendInitContainer(
+              podWithDetachedInitContainer.pod, resolvedInitContainer)
+
+          val resolvedPodWithMountedSecret = executorMountInitContainerSecretPlugin.map { plugin =>
+            plugin.addResourceStagingServerSecretVolumeToPod(podWithAttachedInitContainer)
+          }.getOrElse(podWithAttachedInitContainer)
+
+          (resolvedPodWithMountedSecret, podWithDetachedInitContainer.mainContainer)
+      }.getOrElse((withMaybeSmallFilesMountedPod, withMaybeSmallFilesMountedContainer))
+
+    val executorPodWithNodeAffinity = addNodeAffinityAnnotationIfUseful(
+        executorPodWithInitContainer, nodeToLocalTaskCount)
+    val resolvedExecutorPod = new PodBuilder(executorPodWithNodeAffinity)
+      .editSpec()
+        .addToContainers(initBootstrappedExecutorContainer)
+        .endSpec()
+      .build()
+>>>>>>> origin/branch-2.2-kubernetes
     try {
       (executorId, kubernetesClient.pods.create(executorPod))
     } catch {
