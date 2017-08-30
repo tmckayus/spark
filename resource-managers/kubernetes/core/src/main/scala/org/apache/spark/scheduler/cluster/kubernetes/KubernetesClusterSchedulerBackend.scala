@@ -155,7 +155,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
           // allows them to be debugged later on. Otherwise, mark them as to be deleted from the
           // the API server.
           if (!executorExited.exitCausedByApp) {
-            deleteExecutorFromApiAndDataStructures(executorId)
+            deleteExecutorFromClusterAndDataStructures(executorId)
           }
         }
       }
@@ -165,13 +165,13 @@ private[spark] class KubernetesClusterSchedulerBackend(
       val reasonCheckCount = executorReasonCheckAttemptCounts.getOrElse(executorId, 0)
       if (reasonCheckCount >= MAX_EXECUTOR_LOST_REASON_CHECKS) {
         removeExecutor(executorId, SlaveLost("Executor lost for unknown reasons."))
-        deleteExecutorFromApiAndDataStructures(executorId)
+        deleteExecutorFromClusterAndDataStructures(executorId)
       } else {
         executorReasonCheckAttemptCounts.put(executorId, reasonCheckCount + 1)
       }
     }
 
-    def deleteExecutorFromApiAndDataStructures(executorId: String): Unit = {
+    def deleteExecutorFromClusterAndDataStructures(executorId: String): Unit = {
       disconnectedPodsByExecutorIdPendingRemoval -= executorId
       executorReasonCheckAttemptCounts -= executorId
       RUNNING_EXECUTOR_PODS_LOCK.synchronized {
@@ -398,10 +398,9 @@ private[spark] class KubernetesClusterSchedulerBackend(
     }
 
     def handleErroredPod(pod: Pod): Unit = {
-      val alreadyReleased = isPodAlreadyReleased(pod)
       val containerExitStatus = getExecutorExitStatus(pod)
       // container was probably actively killed by the driver.
-      val exitReason = if (alreadyReleased) {
+      val exitReason = if (isPodAlreadyReleased(pod)) {
           ExecutorExited(containerExitStatus, exitCausedByApp = false,
             s"Container in pod " + pod.getMetadata.getName +
               " exited from explicit termination request.")
@@ -422,8 +421,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
     }
 
     def handleDeletedPod(pod: Pod): Unit = {
-      val alreadyReleased = isPodAlreadyReleased(pod)
-      val exitMessage = if (alreadyReleased) {
+      val exitMessage = if (isPodAlreadyReleased(pod)) {
         s"Container in pod ${pod.getMetadata.getName} exited from explicit termination request."
       } else {
         s"Pod ${pod.getMetadata.getName} deleted or lost."
