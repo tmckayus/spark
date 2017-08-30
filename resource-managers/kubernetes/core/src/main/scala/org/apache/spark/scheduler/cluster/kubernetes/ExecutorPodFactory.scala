@@ -29,7 +29,8 @@ import org.apache.spark.deploy.kubernetes.constants._
 import org.apache.spark.deploy.kubernetes.submit.{InitContainerUtil, MountSmallFilesBootstrap}
 import org.apache.spark.util.Utils
 
-// Strictly an extension of KubernetesClusterSchedulerBakcne that is factored out for testing.
+// Configures executor pods. Construct one of these with a SparkConf to set up properties that are
+// common across all executors. Then, pass in dynamic parameters into createExecutorPod.
 private[spark] trait ExecutorPodFactory {
   def createExecutorPod(
       executorId: String,
@@ -51,7 +52,6 @@ private[spark] class ExecutorPodFactoryImpl(
 
   import ExecutorPodFactoryImpl._
 
-  private val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
   private val executorExtraClasspath = sparkConf.get(
       org.apache.spark.internal.config.EXECUTOR_CLASS_PATH)
   private val executorJarsDownloadDir = sparkConf.get(INIT_CONTAINER_JARS_DOWNLOAD_LOCATION)
@@ -79,7 +79,7 @@ private[spark] class ExecutorPodFactoryImpl(
       ConfigurationUtils.parsePrefixedKeyValuePairs(
           sparkConf,
           KUBERNETES_NODE_SELECTOR_PREFIX,
-          "node-selector")
+          "node selector")
 
   private val executorDockerImage = sparkConf.get(EXECUTOR_DOCKER_IMAGE)
   private val dockerImagePullPolicy = sparkConf.get(DOCKER_IMAGE_PULL_POLICY)

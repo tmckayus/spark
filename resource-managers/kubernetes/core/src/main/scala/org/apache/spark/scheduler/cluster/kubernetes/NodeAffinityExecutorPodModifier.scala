@@ -23,7 +23,8 @@ import io.fabric8.kubernetes.api.model.{Pod, PodBuilder}
 import org.apache.spark.deploy.kubernetes.constants.ANNOTATION_EXECUTOR_NODE_AFFINITY
 import org.apache.spark.internal.Logging
 
-// Strictly an extension of ExecutorPodFactory but extracted out for testing.
+// Applies a node affinity annotation to executor pods so that pods can be placed optimally for
+// locality.
 private[spark] trait NodeAffinityExecutorPodModifier {
    def addNodeAffinityAnnotationIfUseful(
        baseExecutorPod: Pod, nodeToTaskCount: Map[String, Int]): Pod
