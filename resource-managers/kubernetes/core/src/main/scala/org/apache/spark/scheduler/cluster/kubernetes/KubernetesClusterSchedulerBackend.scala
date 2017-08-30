@@ -463,10 +463,10 @@ private[spark] class KubernetesClusterSchedulerBackend(
                   .withName(runningExecutorsToPods(executorId).getMetadata.getName)
                   .get()
               }
-              val shuffleSpecifiProperties = shuffleManager.get
+              val shuffleSpecificProperties = shuffleManager.get
                   .getShuffleServiceConfigurationForExecutor(runningExecutorPod)
               val reply = SparkAppConfig(
-                  sparkProperties ++ shuffleSpecifiProperties,
+                  sparkProperties ++ shuffleSpecificProperties,
                   SparkEnv.get.securityManager.getIOEncryptionKey())
               context.reply(reply)
           }

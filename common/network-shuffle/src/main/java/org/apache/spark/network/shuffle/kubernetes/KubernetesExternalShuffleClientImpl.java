@@ -43,7 +43,7 @@ public class KubernetesExternalShuffleClientImpl
           .getLogger(KubernetesExternalShuffleClientImpl.class);
 
   /**
-   * Creates an Kubernetes external shuffle client that wraps the {@link ExternalShuffleClient}.
+   * Creates a Kubernetes external shuffle client that wraps the {@link ExternalShuffleClient}.
    * Please refer to docs on {@link ExternalShuffleClient} for more information.
    */
   public KubernetesExternalShuffleClientImpl(
@@ -73,10 +73,5 @@ public class KubernetesExternalShuffleClientImpl
       logger.warn("Unable to register app " + appId + " with external shuffle service. " +
           "Please manually remove shuffle data after driver exit. Error: " + e);
     }
-  }
-
-  @Override
-  public void close() {
-    super.close();
   }
 }
