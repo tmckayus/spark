@@ -71,7 +71,6 @@ private[spark] class KubernetesClusterSchedulerBackend(
     .get(KUBERNETES_DRIVER_POD_NAME)
     .getOrElse(
       throw new SparkException("Must specify the driver pod name"))
-
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
       requestExecutorsService)
 
