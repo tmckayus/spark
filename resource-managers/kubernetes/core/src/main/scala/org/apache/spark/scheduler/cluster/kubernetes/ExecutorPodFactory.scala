@@ -92,16 +92,16 @@ private[spark] class ExecutorPodFactoryImpl(
 
   private val executorPodNamePrefix = sparkConf.get(KUBERNETES_EXECUTOR_POD_NAME_PREFIX)
 
-  private val executorMemoryMb = sparkConf.get(org.apache.spark.internal.config.EXECUTOR_MEMORY)
+  private val executorMemoryMiB = sparkConf.get(org.apache.spark.internal.config.EXECUTOR_MEMORY)
   private val executorMemoryString = sparkConf.get(
       org.apache.spark.internal.config.EXECUTOR_MEMORY.key,
       org.apache.spark.internal.config.EXECUTOR_MEMORY.defaultValueString)
 
-  private val memoryOverheadMb = sparkConf
+  private val memoryOverheadMiB = sparkConf
       .get(KUBERNETES_EXECUTOR_MEMORY_OVERHEAD)
-      .getOrElse(math.max((MEMORY_OVERHEAD_FACTOR * executorMemoryMb).toInt,
-          MEMORY_OVERHEAD_MIN))
-  private val executorMemoryWithOverhead = executorMemoryMb + memoryOverheadMb
+      .getOrElse(math.max((MEMORY_OVERHEAD_FACTOR * executorMemoryMiB).toInt,
+        MEMORY_OVERHEAD_MIN_MIB))
+  private val executorMemoryWithOverhead = executorMemoryMiB + memoryOverheadMiB
 
   private val executorCores = sparkConf.getDouble("spark.executor.cores", 1d)
   private val executorLimitCores = sparkConf.getOption(KUBERNETES_EXECUTOR_LIMIT_CORES.key)
@@ -126,10 +126,10 @@ private[spark] class ExecutorPodFactoryImpl(
         SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE) ++
         executorLabels
     val executorMemoryQuantity = new QuantityBuilder(false)
-      .withAmount(s"${executorMemoryMb}M")
+      .withAmount(s"${executorMemoryMiB}Mi")
       .build()
     val executorMemoryLimitQuantity = new QuantityBuilder(false)
-      .withAmount(s"${executorMemoryWithOverhead}M")
+      .withAmount(s"${executorMemoryWithOverhead}Mi")
       .build()
     val executorCpuQuantity = new QuantityBuilder(false)
       .withAmount(executorCores.toString)
