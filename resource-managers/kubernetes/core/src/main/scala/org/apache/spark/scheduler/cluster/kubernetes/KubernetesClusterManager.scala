@@ -135,7 +135,7 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
     val allocatorExecutor = ThreadUtils
         .newDaemonSingleThreadScheduledExecutor("kubernetes-pod-allocator")
     val requestExecutorsService = ThreadUtils.newDaemonCachedThreadPool(
-        "kubernetes-request-executors")
+        "kubernetes-executor-requests")
     new KubernetesClusterSchedulerBackend(
         scheduler.asInstanceOf[TaskSchedulerImpl],
         sc.env.rpcEnv,
