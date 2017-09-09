@@ -1,4 +1,3 @@
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -39,12 +38,12 @@ import org.apache.spark.deploy.kubernetes.submit.submitsteps.{DriverConfiguratio
  * container images.
  *
  * The solution is twofold:
- * - When not using an external shuffle service, a reasonable default is to create a new directory with
- *   a random name and set that to be the value of `spark.local.dir`.
+ * - When not using an external shuffle service, a reasonable default is to create a new directory
+ *   with a UUID name and set that to be the value of `spark.local.dir`.
  * - When using the external shuffle service, it is risky to assume that the user intends to mount
  *   the JVM temporary directory into the pod as a hostPath volume. We therefore enforce that
- *   spark.local.dir must be set in dynamic allocation mode so that the user explicitly sets the paths
- *   that have to be mounted.
+ *   spark.local.dir must be set in dynamic allocation mode so that the user explicitly sets the
+ *   paths that have to be mounted.
  */
 private[spark] class LocalDirectoryMountConfigurationStep(
     submissionSparkConf: SparkConf) extends DriverConfigurationStep {
