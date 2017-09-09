@@ -278,9 +278,7 @@ private[spark] class ExecutorPodFactoryImpl(
           // as much as possible mounting an emptyDir which overlaps with an existing path in
           // the Docker image, which is very likely what would happen if we tried to mount the
           // volume at Java's temporary directory path, which is /tmp in many JDKs.
-          val resolvedLocalDirs = sparkConf.get(
-              "spark.local.dir", s"$GENERATED_LOCAL_DIR_MOUNT_ROOT/${UUID.randomUUID()}")
-              .split(",")
+          val resolvedLocalDirs = Utils.getConfiguredLocalDirs(sparkConf)
           val localDirVolumes = resolvedLocalDirs.zipWithIndex.map { case (dir, index) =>
             new VolumeBuilder()
               .withName(s"spark-local-dir-$index-${Paths.get(dir).getFileName.toString}")
@@ -305,10 +303,6 @@ private[spark] class ExecutorPodFactoryImpl(
             .build(),
             new ContainerBuilder(initBootstrappedExecutorContainer)
               .addToVolumeMounts(localDirVolumeMounts: _*)
-              .addNewEnv()
-                .withName(ENV_SPARK_LOCAL_DIRS)
-                .withValue(resolvedLocalDirs.mkString(","))
-                .endEnv()
               .build())
         } else (executorPodWithNodeAffinity, initBootstrappedExecutorContainer)
 
