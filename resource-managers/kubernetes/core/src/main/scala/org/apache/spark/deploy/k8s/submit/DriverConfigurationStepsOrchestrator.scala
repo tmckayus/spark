@@ -20,11 +20,11 @@ import org.apache.spark.SparkConf
 import org.apache.spark.deploy.k8s.ConfigurationUtils
 import org.apache.spark.deploy.k8s.config._
 import org.apache.spark.deploy.k8s.constants._
-import org.apache.spark.deploy.k8s.submit.submitsteps._
+import org.apache.spark.deploy.k8s.submit.submitsteps.{BaseDriverConfigurationStep, DependencyResolutionStep, DriverAddressConfigurationStep, DriverConfigurationStep, DriverKubernetesCredentialsStep, HadoopConfigBootstrapStep, InitContainerBootstrapStep, MountSecretsStep, MountSmallLocalFilesStep, PythonStep}
 import org.apache.spark.deploy.k8s.submit.submitsteps.hadoopsteps.HadoopStepsOrchestrator
 import org.apache.spark.deploy.k8s.submit.submitsteps.initcontainer.InitContainerConfigurationStepsOrchestrator
 import org.apache.spark.launcher.SparkLauncher
-import org.apache.spark.util.Utils
+import org.apache.spark.util.{SystemClock, Utils}
 
 /**
  * Constructs the complete list of driver configuration steps to run to deploy the Spark driver.
@@ -75,10 +75,9 @@ private[spark] class DriverConfigurationStepsOrchestrator(
         .getOrElse(Array.empty[String]) ++
         additionalMainAppPythonFile.toSeq ++
         additionalPythonFiles
-    val driverCustomLabels = ConfigurationUtils.combinePrefixedKeyValuePairsWithDeprecatedConf(
+    val driverCustomLabels = ConfigurationUtils.parsePrefixedKeyValuePairs(
         submissionSparkConf,
         KUBERNETES_DRIVER_LABEL_PREFIX,
-        KUBERNETES_DRIVER_LABELS,
         "label")
     require(!driverCustomLabels.contains(SPARK_APP_ID_LABEL), s"Label with key " +
         s" $SPARK_APP_ID_LABEL is not allowed as it is reserved for Spark bookkeeping" +
@@ -86,6 +85,11 @@ private[spark] class DriverConfigurationStepsOrchestrator(
     val allDriverLabels = driverCustomLabels ++ Map(
         SPARK_APP_ID_LABEL -> kubernetesAppId,
         SPARK_ROLE_LABEL -> SPARK_POD_DRIVER_ROLE)
+    val driverSecretNamesToMountPaths = ConfigurationUtils.parsePrefixedKeyValuePairs(
+      submissionSparkConf,
+      KUBERNETES_DRIVER_SECRETS_PREFIX,
+      "driver secrets")
+
     val initialSubmissionStep = new BaseDriverConfigurationStep(
         kubernetesAppId,
         kubernetesResourceNamePrefix,
@@ -95,6 +99,11 @@ private[spark] class DriverConfigurationStepsOrchestrator(
         mainClass,
         appArgs,
         submissionSparkConf)
+    val driverAddressStep = new DriverAddressConfigurationStep(
+        kubernetesResourceNamePrefix,
+        allDriverLabels,
+        submissionSparkConf,
+        new SystemClock)
     val kubernetesCredentialsStep = new DriverKubernetesCredentialsStep(
         submissionSparkConf, kubernetesResourceNamePrefix)
     val hadoopConfigSteps =
@@ -123,7 +132,7 @@ private[spark] class DriverConfigurationStepsOrchestrator(
             // Then, indicate to the outer block that the init-container should not handle
             // those local files simply by filtering them out.
             val sparkFilesWithoutLocal = KubernetesFileUtils.getNonSubmitterLocalFiles(sparkFiles)
-            val smallFilesSecretName = s"${kubernetesAppId}-submitted-files"
+            val smallFilesSecretName = s"$kubernetesAppId-submitted-files"
             val mountSmallFilesBootstrap = new MountSmallFilesBootstrapImpl(
                 smallFilesSecretName, MOUNTED_SMALL_FILES_SECRET_MOUNT_PATH)
             val mountSmallLocalFilesStep = new MountSmallLocalFilesStep(
@@ -163,19 +172,30 @@ private[spark] class DriverConfigurationStepsOrchestrator(
     } else {
       (filesDownloadPath, Seq.empty[DriverConfigurationStep])
     }
+
     val dependencyResolutionStep = new DependencyResolutionStep(
       sparkJars,
       sparkFiles,
       jarsDownloadPath,
       localFilesDownloadPath)
+
+    val mountSecretsStep = if (driverSecretNamesToMountPaths.nonEmpty) {
+      val mountSecretsBootstrap = new MountSecretsBootstrapImpl(driverSecretNamesToMountPaths)
+      Some(new MountSecretsStep(mountSecretsBootstrap))
+    } else {
+      None
+    }
+
     Seq(
       initialSubmissionStep,
+      driverAddressStep,
       kubernetesCredentialsStep,
       dependencyResolutionStep) ++
       submittedDependenciesBootstrapSteps ++
       hadoopConfigSteps.toSeq ++
-      pythonStep.toSeq
-  }
+      pythonStep.toSeq ++
+      mountSecretsStep.toSeq
+ }
 
   private def areAnyFilesNonContainerLocal(files: Seq[String]): Boolean = {
     files.exists { uri =>

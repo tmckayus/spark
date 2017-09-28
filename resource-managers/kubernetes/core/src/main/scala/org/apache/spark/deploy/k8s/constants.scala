@@ -48,11 +48,11 @@ package object constants {
   private[spark] val SPARK_APP_HADOOP_SECRET_VOLUME_NAME = "hadoop-secret"
 
   // Default and fixed ports
-  private[spark] val SUBMISSION_SERVER_PORT = 7077
   private[spark] val DEFAULT_DRIVER_PORT = 7078
   private[spark] val DEFAULT_BLOCKMANAGER_PORT = 7079
   private[spark] val DEFAULT_UI_PORT = 4040
   private[spark] val BLOCK_MANAGER_PORT_NAME = "blockmanager"
+  private[spark] val DRIVER_PORT_NAME = "driver-rpc-port"
   private[spark] val EXECUTOR_PORT_NAME = "executor"
 
   // Environment Variables

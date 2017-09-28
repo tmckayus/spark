@@ -74,7 +74,7 @@ private[spark] class KubernetesTestComponents(defaultClient: DefaultKubernetesCl
       .set(EXECUTOR_DOCKER_IMAGE,
         System.getProperty("spark.docker.test.executorImage", "spark-executor:latest"))
       .setJars(Seq(KubernetesSuite.HELPER_JAR_FILE.getAbsolutePath))
-      .set("spark.executor.memory", "500m")
+      .set("spark.executor.memory", "1g")
       .set("spark.executor.cores", "1")
       .set("spark.executors.instances", "1")
       .set("spark.app.name", "spark-test-app")

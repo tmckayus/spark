@@ -20,14 +20,16 @@ import java.io.File
 
 import io.fabric8.kubernetes.client.Config
 
-import org.apache.spark.deploy.k8s._
+import org.apache.spark.SparkContext
+import org.apache.spark.deploy.k8s.{ConfigurationUtils, HadoopConfBootstrapImpl, HadoopUGIUtil, InitContainerResourceStagingServerSecretPluginImpl, KerberosTokenConfBootstrapImpl, SparkKubernetesClientFactory, SparkPodInitContainerBootstrapImpl}
 import org.apache.spark.deploy.k8s.config._
 import org.apache.spark.deploy.k8s.constants._
-import org.apache.spark.deploy.k8s.submit.MountSmallFilesBootstrapImpl
+import org.apache.spark.deploy.k8s.submit.{MountSecretsBootstrapImpl, MountSmallFilesBootstrapImpl}
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.netty.SparkTransportConf
+import org.apache.spark.network.shuffle.kubernetes.KubernetesExternalShuffleClientImpl
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
-import org.apache.spark.util.Utils
-import org.apache.spark.SparkContext
+import org.apache.spark.util.{ThreadUtils, Utils}
 
 private[spark] class KubernetesClusterManager extends ExternalClusterManager with Logging {
   override def canCreate(masterURL: String): Boolean = masterURL.startsWith("k8s")
@@ -55,6 +57,7 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
       sparkConf.get(EXECUTOR_INIT_CONTAINER_SECRET)
     val maybeExecutorInitContainerSecretMountPath =
       sparkConf.get(EXECUTOR_INIT_CONTAINER_SECRET_MOUNT_DIR)
+
     val executorInitContainerSecretVolumePlugin = for {
       initContainerSecretName <- maybeExecutorInitContainerSecretName
       initContainerSecretMountPath <- maybeExecutorInitContainerSecretMountPath
@@ -63,10 +66,11 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
         initContainerSecretName,
         initContainerSecretMountPath)
     }
+
     // Only set up the bootstrap if they've provided both the config map key and the config map
     // name. The config map might not be provided if init-containers aren't being used to
     // bootstrap dependencies.
-    val executorInitContainerbootStrap = for {
+    val executorInitContainerBootstrap = for {
       configMap <- maybeInitContainerConfigMap
       configMapKey <- maybeInitContainerConfigMapKey
     } yield {
@@ -106,6 +110,15 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
     } yield {
       new MountSmallFilesBootstrapImpl(secretName, secretMountPath)
     }
+
+    val executorSecretNamesToMountPaths = ConfigurationUtils.parsePrefixedKeyValuePairs(sparkConf,
+      KUBERNETES_EXECUTOR_SECRETS_PREFIX, "executor secrets")
+    val mountSecretBootstrap = if (executorSecretNamesToMountPaths.nonEmpty) {
+      Some(new MountSecretsBootstrapImpl(executorSecretNamesToMountPaths))
+    } else {
+      None
+    }
+
     if (maybeInitContainerConfigMap.isEmpty) {
       logWarning("The executor's init-container config map was not specified. Executors will" +
         " therefore not attempt to fetch remote or submitted dependencies.")
@@ -125,15 +138,39 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
         sparkConf,
         Some(new File(Config.KUBERNETES_SERVICE_ACCOUNT_TOKEN_PATH)),
         Some(new File(Config.KUBERNETES_SERVICE_ACCOUNT_CA_CRT_PATH)))
-    new KubernetesClusterSchedulerBackend(
-        sc.taskScheduler.asInstanceOf[TaskSchedulerImpl],
-        sc,
-        executorInitContainerbootStrap,
-        hadoopBootStrap,
-        kerberosBootstrap,
-        executorInitContainerSecretVolumePlugin,
+    val kubernetesShuffleManager = if (Utils.isDynamicAllocationEnabled(sparkConf)) {
+      val kubernetesExternalShuffleClient = new KubernetesExternalShuffleClientImpl(
+        SparkTransportConf.fromSparkConf(sparkConf, "shuffle"),
+        sc.env.securityManager,
+        sc.env.securityManager.isAuthenticationEnabled())
+      Some(new KubernetesExternalShuffleManagerImpl(
+        sparkConf,
+        kubernetesClient,
+        kubernetesExternalShuffleClient))
+    } else None
+
+    val executorPodFactory = new ExecutorPodFactoryImpl(
+        sparkConf,
+        NodeAffinityExecutorPodModifierImpl,
+        mountSecretBootstrap,
         mountSmallFilesBootstrap,
-        kubernetesClient)
+        executorInitContainerBootstrap,
+        executorInitContainerSecretVolumePlugin,
+        kubernetesShuffleManager,
+        hadoopBootStrap,
+        kerberosBootstrap)
+    val allocatorExecutor = ThreadUtils
+        .newDaemonSingleThreadScheduledExecutor("kubernetes-pod-allocator")
+    val requestExecutorsService = ThreadUtils.newDaemonCachedThreadPool(
+        "kubernetes-executor-requests")
+    new KubernetesClusterSchedulerBackend(
+        scheduler.asInstanceOf[TaskSchedulerImpl],
+        sc.env.rpcEnv,
+        executorPodFactory,
+        kubernetesShuffleManager,
+        kubernetesClient,
+        allocatorExecutor,
+        requestExecutorsService)
   }
 
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
