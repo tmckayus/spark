@@ -18,7 +18,7 @@ package org.apache.spark.deploy.kubernetes.submit
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.deploy.kubernetes.config._
-import org.apache.spark.deploy.kubernetes.submit.submitsteps.{BaseDriverConfigurationStep, DependencyResolutionStep, DriverConfigurationStep, DriverKubernetesCredentialsStep, InitContainerBootstrapStep, MountSmallLocalFilesStep, PythonStep}
+import org.apache.spark.deploy.kubernetes.submit.submitsteps.{BaseDriverConfigurationStep, DependencyResolutionStep, DriverConfigurationStep, DriverKubernetesCredentialsStep, HadoopConfigBootstrapStep, InitContainerBootstrapStep, MountSmallLocalFilesStep, PythonStep}
 
 private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunSuite {
 
@@ -43,6 +43,7 @@ private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunS
         MAIN_CLASS,
         APP_ARGS,
         ADDITIONAL_PYTHON_FILES,
+        None,
         sparkConf)
     validateStepTypes(
         orchestrator,
@@ -65,6 +66,7 @@ private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunS
         MAIN_CLASS,
         APP_ARGS,
         ADDITIONAL_PYTHON_FILES,
+        None,
         sparkConf)
     validateStepTypes(
         orchestrator,
@@ -86,6 +88,7 @@ private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunS
         MAIN_CLASS,
         APP_ARGS,
         ADDITIONAL_PYTHON_FILES,
+        None,
         sparkConf)
     validateStepTypes(
         orchestrator,
@@ -107,6 +110,7 @@ private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunS
         MAIN_CLASS,
         APP_ARGS,
         ADDITIONAL_PYTHON_FILES,
+        None,
         sparkConf)
     validateStepTypes(
         orchestrator,
@@ -116,11 +120,36 @@ private[spark] class DriverConfigurationStepsOrchestratorSuite extends SparkFunS
         classOf[MountSmallLocalFilesStep])
   }
 
+  test("Submission steps with hdfs interaction and HADOOP_CONF_DIR defined") {
+    val sparkConf = new SparkConf(false)
+    val mainAppResource = JavaMainAppResource("local:///var/apps/jars/main.jar")
+    val hadoopConf = Some("/etc/hadoop/conf")
+    val orchestrator = new DriverConfigurationStepsOrchestrator(
+      NAMESPACE,
+      APP_ID,
+      LAUNCH_TIME,
+      mainAppResource,
+      APP_NAME,
+      MAIN_CLASS,
+      APP_ARGS,
+      ADDITIONAL_PYTHON_FILES,
+      hadoopConf,
+      sparkConf)
+    val steps = orchestrator.getAllConfigurationSteps()
+    validateStepTypes(
+      orchestrator,
+      classOf[BaseDriverConfigurationStep],
+      classOf[DriverKubernetesCredentialsStep],
+      classOf[DependencyResolutionStep],
+      classOf[HadoopConfigBootstrapStep])
+  }
+
   private def validateStepTypes(
-      orchestrator: DriverConfigurationStepsOrchestrator,
-      types: Class[_ <: DriverConfigurationStep]*): Unit = {
+    orchestrator: DriverConfigurationStepsOrchestrator,
+    types: Class[_ <: DriverConfigurationStep]*): Unit = {
     val steps = orchestrator.getAllConfigurationSteps()
     assert(steps.size === types.size)
     assert(steps.map(_.getClass) === types)
   }
+
 }

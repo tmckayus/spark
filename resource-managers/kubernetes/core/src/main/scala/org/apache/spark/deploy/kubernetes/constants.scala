@@ -45,9 +45,6 @@ package object constants {
 
   // Hadoop credentials secrets for the Spark app.
   private[spark] val SPARK_APP_HADOOP_CREDENTIALS_BASE_DIR = "/mnt/secrets/hadoop-credentials"
-  private[spark] val SPARK_APP_HADOOP_TOKEN_FILE_SECRET_NAME = "hadoop-token-file"
-  private[spark] val SPARK_APP_HADOOP_TOKEN_FILE_PATH =
-    s"$SPARK_APP_HADOOP_CREDENTIALS_BASE_DIR/$SPARK_APP_HADOOP_TOKEN_FILE_SECRET_NAME"
   private[spark] val SPARK_APP_HADOOP_SECRET_VOLUME_NAME = "hadoop-secret"
 
   // Default and fixed ports
@@ -79,6 +76,7 @@ package object constants {
   private[spark] val ENV_JAVA_OPT_PREFIX = "SPARK_JAVA_OPT_"
   private[spark] val ENV_MOUNTED_FILES_FROM_SECRET_DIR = "SPARK_MOUNTED_FILES_FROM_SECRET_DIR"
   private[spark] val ENV_HADOOP_TOKEN_FILE_LOCATION = "HADOOP_TOKEN_FILE_LOCATION"
+  private[spark] val ENV_SPARK_USER = "SPARK_USER"
 
   // Bootstrapping dependencies with the init-container
   private[spark] val INIT_CONTAINER_ANNOTATION = "pod.beta.kubernetes.io/init-containers"
@@ -101,6 +99,26 @@ package object constants {
   private[spark] val DEFAULT_SHUFFLE_MOUNT_NAME = "shuffle"
   private[spark] val INIT_CONTAINER_SECRET_VOLUME_NAME = "spark-init-secret"
 
+  // Hadoop Configuration
+  private[spark] val HADOOP_FILE_VOLUME = "hadoop-properties"
+  private[spark] val HADOOP_CONF_DIR_PATH = "/etc/hadoop/conf"
+  private[spark] val ENV_HADOOP_CONF_DIR = "HADOOP_CONF_DIR"
+  private[spark] val HADOOP_CONF_DIR_LOC = "spark.kubernetes.hadoop.conf.dir"
+  private[spark] val HADOOP_CONFIG_MAP_SPARK_CONF_NAME =
+    "spark.kubernetes.hadoop.executor.hadoopconfigmapname"
+
+  // Kerberos Configuration
+  private[spark] val HADOOP_KERBEROS_SECRET_NAME =
+    "spark.kubernetes.kerberos.dt"
+  private[spark] val HADOOP_KERBEROS_CONF_SECRET =
+    "spark.kubernetes.kerberos.secretname"
+  private[spark] val HADOOP_KERBEROS_CONF_ITEM_KEY =
+    "spark.kubernetes.kerberos.itemkeyname"
+  private[spark] val KERBEROS_SECRET_LABEL_PREFIX =
+    "hadoop-tokens"
+  private[spark] val SPARK_HADOOP_PREFIX = "spark.hadoop."
+  private[spark] val HADOOP_SECURITY_AUTHENTICATION =
+    SPARK_HADOOP_PREFIX + "hadoop.security.authentication"
   // Bootstrapping dependencies via a secret
   private[spark] val MOUNTED_SMALL_FILES_SECRET_MOUNT_PATH = "/etc/spark-submitted-files"
 
