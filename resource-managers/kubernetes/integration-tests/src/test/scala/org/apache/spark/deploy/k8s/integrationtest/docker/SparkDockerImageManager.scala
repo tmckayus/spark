@@ -16,24 +16,23 @@
  */
 package org.apache.spark.deploy.k8s.integrationtest.docker
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.net.URI
 import java.nio.file.Paths
 
-import scala.collection.JavaConverters._
-
+import com.google.common.base.Charsets
+import com.google.common.io.Files
 import com.spotify.docker.client.{DefaultDockerClient, DockerCertificates, LoggingBuildHandler}
 import org.apache.http.client.utils.URIBuilder
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
 import org.scalatest.time.{Minutes, Seconds, Span}
+import scala.collection.JavaConverters._
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.util.RedirectThread
+import org.apache.spark.util.{RedirectThread, Utils}
 
-
-
-private[spark] class SparkDockerImageBuilder
-  (private val dockerEnv: Map[String, String]) extends Logging{
+private[spark] class SparkDockerImageManager(
+    dockerEnv: Map[String, String], dockerTag: String) extends Logging {
 
   private val DOCKER_BUILD_PATH = Paths.get("target", "docker")
   // Dockerfile paths must be relative to the build path.
@@ -46,7 +45,7 @@ private[spark] class SparkDockerImageBuilder
   private val INIT_CONTAINER_DOCKER_FILE = "dockerfiles/init-container/Dockerfile"
   private val STAGING_SERVER_DOCKER_FILE = "dockerfiles/resource-staging-server/Dockerfile"
   private val STATIC_ASSET_SERVER_DOCKER_FILE =
-    "dockerfiles/integration-test-asset-server/Dockerfile"
+      "dockerfiles/integration-test-asset-server/Dockerfile"
   private val TIMEOUT = PatienceConfiguration.Timeout(Span(2, Minutes))
   private val INTERVAL = PatienceConfiguration.Interval(Span(2, Seconds))
   private val dockerHost = dockerEnv.getOrElse("DOCKER_HOST",
@@ -97,11 +96,54 @@ private[spark] class SparkDockerImageBuilder
     buildImage("spark-integration-test-asset-server", STATIC_ASSET_SERVER_DOCKER_FILE)
   }
 
+  def deleteImages(): Unit = {
+    deleteImage("spark-driver")
+    deleteImage("spark-driver-py")
+    deleteImage("spark-executor")
+    deleteImage("spark-executor-py")
+    deleteImage("spark-shuffle")
+    deleteImage("spark-resource-staging-server")
+    deleteImage("spark-init")
+    deleteImage("spark-integration-test-asset-server")
+    deleteImage("spark-base")
+  }
+
   private def buildImage(name: String, dockerFile: String): Unit = {
-    dockerClient.build(
-      DOCKER_BUILD_PATH,
-      name,
-      dockerFile,
-      new LoggingBuildHandler())
+    log.info(s"Building Docker image - $name:$dockerTag")
+    val dockerFileWithBaseTag = new File(DOCKER_BUILD_PATH.resolve(
+        s"$dockerFile-$dockerTag").toAbsolutePath.toString)
+    dockerFileWithBaseTag.deleteOnExit()
+    try {
+      val originalDockerFileText = Files.readLines(
+          DOCKER_BUILD_PATH.resolve(dockerFile).toFile, Charsets.UTF_8).asScala
+      val dockerFileTextWithProperBaseImage = originalDockerFileText.map(
+          _.replace("FROM spark-base", s"FROM spark-base:$dockerTag"))
+      Utils.tryWithResource(Files.newWriter(dockerFileWithBaseTag, Charsets.UTF_8)) { fileWriter =>
+        Utils.tryWithResource(new PrintWriter(fileWriter)) { printWriter =>
+          for (line <- dockerFileTextWithProperBaseImage) {
+            // scalastyle:off println
+            printWriter.println(line)
+            // scalastyle:on println
+          }
+        }
+      }
+      dockerClient.build(
+          DOCKER_BUILD_PATH,
+          s"$name:$dockerTag",
+          s"$dockerFile-$dockerTag",
+          new LoggingBuildHandler())
+    } finally {
+      dockerFileWithBaseTag.delete()
+    }
+  }
+
+  private def deleteImage(name: String): Unit = {
+    try {
+      dockerClient.removeImage(s"$name:$dockerTag")
+    } catch {
+      case e: RuntimeException =>
+        logWarning(s"Failed to delete image $name:$dockerTag. There may be images leaking in the" +
+          s" docker environment which are now stale and unused.", e)
+    }
   }
 }
