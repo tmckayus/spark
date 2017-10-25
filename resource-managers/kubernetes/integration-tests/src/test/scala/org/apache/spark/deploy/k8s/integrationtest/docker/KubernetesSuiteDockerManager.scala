@@ -148,7 +148,7 @@ private[spark] class KubernetesSuiteDockerManager(
     Eventually.eventually(KubernetesSuite.TIMEOUT, KubernetesSuite.INTERVAL) {
       val runningContainersWithImageTag = stopRunningContainers()
       require(
-          runningContainersWithImageTag.nonEmpty,
+          runningContainersWithImageTag.isEmpty,
           s"${runningContainersWithImageTag.size} containers found still running" +
               s" with the image tag $dockerTag")
     }
