@@ -23,15 +23,18 @@ import java.nio.file.Paths
 import com.google.common.base.Charsets
 import com.google.common.io.Files
 import com.spotify.docker.client.{DefaultDockerClient, DockerCertificates, LoggingBuildHandler}
+import com.spotify.docker.client.DockerClient.{ListContainersParam, RemoveContainerParam}
+import com.spotify.docker.client.messages.Container
 import org.apache.http.client.utils.URIBuilder
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
 import org.scalatest.time.{Minutes, Seconds, Span}
 import scala.collection.JavaConverters._
 
+import org.apache.spark.deploy.k8s.integrationtest.KubernetesSuite
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.{RedirectThread, Utils}
 
-private[spark] class SparkDockerImageManager(
+private[spark] class KubernetesSuiteDockerManager(
     dockerEnv: Map[String, String], dockerTag: String) extends Logging {
 
   private val DOCKER_BUILD_PATH = Paths.get("target", "docker")
@@ -62,12 +65,12 @@ private[spark] class SparkDockerImageManager(
       throw new IllegalStateException("DOCKER_CERT_PATH env not found."))
 
   private val dockerClient = new DefaultDockerClient.Builder()
-    .uri(httpsDockerUri)
-    .dockerCertificates(DockerCertificates
-        .builder()
-        .dockerCertPath(Paths.get(dockerCerts))
-        .build().get())
-    .build()
+      .uri(httpsDockerUri)
+      .dockerCertificates(DockerCertificates
+          .builder()
+          .dockerCertPath(Paths.get(dockerCerts))
+          .build().get())
+      .build()
 
   def buildSparkDockerImages(): Unit = {
     Eventually.eventually(TIMEOUT, INTERVAL) { dockerClient.ping() }
@@ -97,6 +100,7 @@ private[spark] class SparkDockerImageManager(
   }
 
   def deleteImages(): Unit = {
+    removeRunningContainers()
     deleteImage("spark-driver")
     deleteImage("spark-driver-py")
     deleteImage("spark-executor")
@@ -135,6 +139,50 @@ private[spark] class SparkDockerImageManager(
     } finally {
       dockerFileWithBaseTag.delete()
     }
+  }
+
+  /**
+    * Forces all containers running an image with the configured tag to halt and be removed.
+    */
+  private def removeRunningContainers(): Unit = {
+    Eventually.eventually(KubernetesSuite.TIMEOUT, KubernetesSuite.INTERVAL) {
+      val runningContainersWithImageTag = stopRunningContainers()
+      require(
+          runningContainersWithImageTag.nonEmpty,
+          s"${runningContainersWithImageTag.size} containers found still running" +
+              s" with the image tag $dockerTag")
+    }
+    dockerClient.listContainers(ListContainersParam.allContainers())
+        .asScala
+        .filter(containerHasImageWithTag(_))
+        .foreach(container => dockerClient.removeContainer(container.id())
+
+  }
+
+  private def stopRunningContainers(): Iterable[Container] = {
+    val runningContainersWithImageTag = getRunningContainersWithImageTag()
+    if (runningContainersWithImageTag.nonEmpty) {
+      log.info(s"Found ${runningContainersWithImageTag.size} containers running with" +
+        s" an image with the tag $dockerTag. Attempting to remove these containers," +
+        s" and then will stall for 2 seconds.")
+      runningContainersWithImageTag.foreach { container =>
+        dockerClient.stopContainer(container.id(), 5)
+      }
+    }
+    runningContainersWithImageTag
+  }
+
+  private def getRunningContainersWithImageTag(): Iterable[Container] = {
+    dockerClient
+        .listContainers(
+            ListContainersParam.allContainers(),
+            ListContainersParam.withStatusRunning())
+        .asScala
+        .filter(containerHasImageWithTag(_)
+  }
+
+  private def containerHasImageWithTag(container: Container): Boolean = {
+    container.image().endsWith(s":$dockerTag")
   }
 
   private def deleteImage(name: String): Unit = {

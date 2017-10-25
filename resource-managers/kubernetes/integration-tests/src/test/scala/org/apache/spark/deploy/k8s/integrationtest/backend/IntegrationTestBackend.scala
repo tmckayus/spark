@@ -21,7 +21,7 @@ import io.fabric8.kubernetes.client.DefaultKubernetesClient
 
 import org.apache.spark.deploy.k8s.integrationtest.backend.GCE.GCETestBackend
 import org.apache.spark.deploy.k8s.integrationtest.backend.minikube.{Minikube, MinikubeTestBackend}
-import org.apache.spark.deploy.k8s.integrationtest.docker.SparkDockerImageManager
+import org.apache.spark.deploy.k8s.integrationtest.docker.KubernetesSuiteDockerManager
 
 private[spark] trait IntegrationTestBackend {
   def initialize(): Unit
