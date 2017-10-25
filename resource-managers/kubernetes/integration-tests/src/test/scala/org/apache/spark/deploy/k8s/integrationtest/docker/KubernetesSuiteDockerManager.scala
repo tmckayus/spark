@@ -142,8 +142,8 @@ private[spark] class KubernetesSuiteDockerManager(
   }
 
   /**
-    * Forces all containers running an image with the configured tag to halt and be removed.
-    */
+   * Forces all containers running an image with the configured tag to halt and be removed.
+   */
   private def removeRunningContainers(): Unit = {
     Eventually.eventually(KubernetesSuite.TIMEOUT, KubernetesSuite.INTERVAL) {
       val runningContainersWithImageTag = stopRunningContainers()
@@ -155,7 +155,15 @@ private[spark] class KubernetesSuiteDockerManager(
     dockerClient.listContainers(ListContainersParam.allContainers())
         .asScala
         .filter(containerHasImageWithTag(_))
-        .foreach(container => dockerClient.removeContainer(container.id()))
+        .foreach(container => dockerClient.removeContainer(
+            container.id(), RemoveContainerParam.forceKill(true)))
+    Eventually.eventually(KubernetesSuite.TIMEOUT, KubernetesSuite.INTERVAL) {
+      val containersWithImageTag = dockerClient.listContainers(ListContainersParam.allContainers())
+        .asScala
+        .filter(containerHasImageWithTag(_))
+      require(containersWithImageTag.isEmpty, s"${containersWithImageTag.size} containers still" +
+        s" found with image tag $dockerTag.")
+    }
 
   }
 
