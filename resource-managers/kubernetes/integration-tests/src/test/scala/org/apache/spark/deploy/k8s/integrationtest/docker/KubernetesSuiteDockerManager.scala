@@ -155,7 +155,7 @@ private[spark] class KubernetesSuiteDockerManager(
     dockerClient.listContainers(ListContainersParam.allContainers())
         .asScala
         .filter(containerHasImageWithTag(_))
-        .foreach(container => dockerClient.removeContainer(container.id())
+        .foreach(container => dockerClient.removeContainer(container.id()))
 
   }
 
@@ -178,7 +178,7 @@ private[spark] class KubernetesSuiteDockerManager(
             ListContainersParam.allContainers(),
             ListContainersParam.withStatusRunning())
         .asScala
-        .filter(containerHasImageWithTag(_)
+        .filter(containerHasImageWithTag(_))
   }
 
   private def containerHasImageWithTag(container: Container): Boolean = {
