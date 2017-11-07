@@ -24,7 +24,7 @@ FROM spark-base
 ADD examples /opt/spark/examples
 ADD R /opt/spark/R
 
-RUN apk add --no-cache R R-dev
+RUN apk add --no-cache R R-dev && chmod -R a+w /opt/spark/work-dir
 
 ENV R_HOME /usr/lib/R
 

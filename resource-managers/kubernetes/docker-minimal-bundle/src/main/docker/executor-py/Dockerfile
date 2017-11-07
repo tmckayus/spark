@@ -28,7 +28,9 @@ RUN apk add --no-cache python && \
     python -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
     pip install --upgrade pip setuptools && \
-    rm -r /root/.cache
+    rm -r /root/.cache && \
+    chmod -R a+w /opt/spark/work-dir
+
 # UNCOMMENT THE FOLLOWING TO START PIP INSTALLING PYTHON PACKAGES
 # RUN apk add --update alpine-sdk python-dev
 # RUN pip install numpy

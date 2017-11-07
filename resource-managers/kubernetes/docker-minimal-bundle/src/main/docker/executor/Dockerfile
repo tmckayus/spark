@@ -21,6 +21,8 @@ FROM spark-base
 # command should be invoked from the top level directory of the Spark distribution. E.g.:
 # docker build -t spark-executor:latest -f dockerfiles/executor/Dockerfile .
 
+RUN chmod -R a+w /opt/spark/work-dir
+
 COPY examples /opt/spark/examples
 
 CMD SPARK_CLASSPATH="${SPARK_HOME}/jars/*" && \
