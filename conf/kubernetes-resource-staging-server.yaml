@@ -69,11 +69,9 @@ kind: Service
 metadata:
   name: spark-resource-staging-service
 spec:
-  type: NodePort
   selector:
     resource-staging-server-instance: default
   ports:
     - protocol: TCP
       port: 10000
       targetPort: 10000
-      nodePort: 31000
